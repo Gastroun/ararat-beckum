@@ -1,0 +1,28 @@
+# ══════════════════════════════════════════════════════
+# WICHTIG: .env NIEMALS hochladen – enthält alle Keys!
+# ══════════════════════════════════════════════════════
+
+# Umgebungsvariablen (geheime Keys)
+.env
+.env.local
+.env.production
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+logs/
+*.log

@@ -1,0 +1,2292 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ararat Grill – Admin Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#0f0f0f;--bg2:#161616;--bg3:#1e1e1e;--card:#1a1a1a;--border:#2a2a2a;
+  --text:#f0ece4;--muted:#777;--gold:#c0281a;--gold2:#9e1f12;
+  --s-new:#e8a020;--s-prep:#2196f3;--s-ready:#4caf50;--s-del:#9c27b0;--s-cancel:#e53935;
+  --radius:10px;
+}
+html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);}
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-thumb{background:#333;border-radius:3px;}
+
+/* LOGIN */
+#loginScreen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:9999;}
+.login-box{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:40px 36px;width:360px;text-align:center;}
+.login-logo{font-family:'Playfair Display',serif;font-size:1.8rem;font-weight:900;color:var(--gold);margin-bottom:6px;}
+.login-sub{color:var(--muted);font-size:.85rem;margin-bottom:28px;}
+.login-box input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:12px 16px;color:var(--text);font-size:.95rem;font-family:inherit;margin-bottom:12px;transition:border .15s;}
+.login-box input:focus{outline:none;border-color:var(--gold);}
+.login-btn{width:100%;background:var(--gold);color:#fff;border:none;border-radius:9px;padding:13px;font-size:.95rem;font-weight:700;cursor:pointer;font-family:inherit;transition:background .2s;}
+.login-btn:hover{background:var(--gold2);}
+.login-err{color:#f85149;font-size:.82rem;margin-top:8px;display:none;}
+
+/* LAYOUT */
+#app{display:none;flex-direction:column;height:100%;}
+
+/* TOPBAR */
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 20px;height:58px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;position:sticky;top:0;z-index:100;}
+.topbar-logo{font-family:'Playfair Display',serif;font-size:1.25rem;font-weight:900;background:linear-gradient(135deg,var(--gold),#e8502a);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.topbar-sub{font-size:.72rem;color:var(--muted);margin-top:1px;}
+.topbar-clock{font-size:.88rem;color:var(--muted);text-align:center;}
+.topbar-clock .time{font-size:1.1rem;font-weight:700;color:var(--text);}
+.topbar-right{display:flex;align-items:center;gap:10px;}
+.toggle-btn{display:flex;align-items:center;gap:7px;background:var(--bg3);border:1px solid var(--border);border-radius:50px;padding:7px 14px;cursor:pointer;font-size:.82rem;font-weight:600;transition:all .2s;}
+.toggle-btn:hover{border-color:var(--gold);}
+.toggle-dot{width:9px;height:9px;border-radius:50%;background:#4caf50;}
+.toggle-dot.closed{background:#e53935;}
+.logout-btn{background:transparent;border:1px solid var(--border);border-radius:7px;padding:6px 12px;color:var(--muted);font-size:.78rem;cursor:pointer;font-family:inherit;transition:all .2s;}
+.logout-btn:hover{border-color:var(--gold);color:var(--text);}
+
+/* ALERT BANNER */
+.alert-banner{background:linear-gradient(135deg,var(--gold),#e8502a);padding:12px 20px;display:none;align-items:center;justify-content:space-between;animation:flashBg 1s ease-in-out 3;}
+@keyframes flashBg{0%,100%{opacity:1}50%{opacity:.7}}
+.alert-banner.show{display:flex;}
+.alert-text{font-weight:700;font-size:.9rem;}
+.alert-dismiss{background:rgba(0,0,0,.25);border:none;color:#fff;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:.8rem;}
+
+/* STATS BAR */
+.stats-bar{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;padding:14px 20px;flex-shrink:0;}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:13px 16px;}
+.stat-label{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;}
+.stat-val{font-size:1.35rem;font-weight:700;color:var(--text);}
+.stat-sub{font-size:.72rem;color:var(--muted);margin-top:2px;}
+.stat-card.accent .stat-val{color:var(--gold);}
+
+/* MAIN AREA */
+.main-area{display:grid;grid-template-columns:1fr 310px;gap:0;flex:1;overflow:hidden;}
+.orders-col{display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--border);}
+.sidebar-col{display:flex;flex-direction:column;overflow:hidden;}
+
+/* FILTER */
+.filter-bar{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap;}
+.search-wrap{position:relative;flex:1;min-width:160px;}
+.search-wrap input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 12px 8px 34px;color:var(--text);font-size:.84rem;font-family:inherit;}
+.search-wrap input:focus{outline:none;border-color:var(--gold);}
+.search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:.85rem;}
+.filter-pills{display:flex;gap:5px;flex-wrap:wrap;}
+.pill{background:var(--bg3);border:1px solid var(--border);border-radius:50px;padding:5px 12px;font-size:.78rem;cursor:pointer;transition:all .15s;color:var(--muted);}
+.pill:hover{border-color:var(--gold);color:var(--text);}
+.pill.active{background:var(--gold);border-color:var(--gold);color:#fff;}
+.day-print-btn{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:.78rem;color:var(--muted);cursor:pointer;font-family:inherit;transition:all .2s;white-space:nowrap;}
+.day-print-btn:hover{border-color:var(--gold);color:var(--text);}
+
+/* ORDERS LIST */
+.orders-list{flex:1;overflow-y:auto;padding:10px 12px;}
+.order-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;cursor:pointer;transition:border .15s;}
+.order-card:hover{border-color:#444;}
+.order-card.selected{border-color:var(--gold);}
+.oc-top{display:flex;align-items:center;gap:8px;padding:10px 14px 8px;}
+.oc-num{font-weight:700;color:var(--gold);font-size:.92rem;}
+.oc-time{font-size:.76rem;color:var(--muted);}
+.oc-mode{font-size:.82rem;}
+.oc-badges{display:flex;gap:5px;margin-left:auto;flex-wrap:wrap;}
+.badge{display:inline-block;border-radius:50px;padding:3px 9px;font-size:.7rem;font-weight:700;}
+.badge-new{background:rgba(232,160,32,.18);color:var(--s-new);}
+.badge-prep{background:rgba(33,150,243,.18);color:var(--s-prep);}
+.badge-ready{background:rgba(76,175,80,.18);color:var(--s-ready);}
+.badge-del{background:rgba(156,39,176,.18);color:var(--s-del);}
+.badge-cancel{background:rgba(229,57,53,.18);color:var(--s-cancel);}
+.badge-paid{background:rgba(76,175,80,.15);color:#66bb6a;cursor:pointer;}
+.badge-unpaid{background:rgba(229,57,53,.15);color:#ef5350;cursor:pointer;}
+.oc-items{padding:0 14px 8px;font-size:.79rem;color:var(--muted);}
+.oc-bottom{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-top:1px solid var(--border);}
+.oc-price{font-weight:700;font-size:.95rem;color:var(--text);}
+.oc-actions{display:flex;gap:5px;}
+.oc-btn{background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:5px 10px;font-size:.76rem;cursor:pointer;color:var(--muted);font-family:inherit;transition:all .15s;white-space:nowrap;}
+.oc-btn:hover{border-color:var(--gold);color:var(--text);}
+.oc-btn.next{background:var(--gold);border-color:var(--gold);color:#fff;}
+.oc-btn.next:hover{background:var(--gold2);}
+.oc-btn.cancel{border-color:rgba(229,57,53,.4);color:#ef5350;}
+.oc-btn.cancel:hover{background:rgba(229,57,53,.15);}
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:200px;color:var(--muted);gap:10px;font-size:.88rem;}
+
+/* SIDEBAR */
+.sidebar-tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;}
+.sidebar-tab{flex:1;padding:12px 6px;text-align:center;font-size:.78rem;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;}
+.sidebar-tab:hover{color:var(--text);}
+.sidebar-tab.active{color:var(--gold);border-bottom-color:var(--gold);}
+.sidebar-content{flex:1;overflow-y:auto;padding:14px;}
+.no-selection{display:flex;flex-direction:column;align-items:center;justify-content:center;height:200px;color:var(--muted);font-size:.84rem;gap:8px;}
+
+/* DETAIL TAB */
+.detail-num{font-family:'Playfair Display',serif;font-size:1.8rem;font-weight:900;color:var(--gold);margin-bottom:4px;}
+.detail-meta{font-size:.78rem;color:var(--muted);margin-bottom:16px;}
+.detail-section{margin-bottom:16px;}
+.detail-section-title{font-size:.7rem;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:8px;font-weight:700;}
+.detail-item{display:flex;justify-content:space-between;font-size:.83rem;padding:4px 0;border-bottom:1px solid var(--border);}
+.detail-item:last-child{border-bottom:none;}
+.detail-item-name{color:var(--muted);flex:1;}
+.detail-item-price{color:var(--text);font-weight:600;white-space:nowrap;}
+.detail-total-row{display:flex;justify-content:space-between;font-size:.82rem;padding:3px 0;color:var(--muted);}
+.detail-total-row.grand{color:var(--text);font-weight:700;font-size:.92rem;border-top:1px solid var(--border);padding-top:6px;margin-top:2px;}
+.detail-label{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;font-weight:700;}
+.status-select{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:.85rem;font-family:inherit;cursor:pointer;}
+.status-select:focus{outline:none;border-color:var(--gold);}
+.mode-btns,.pay-btns{display:flex;gap:6px;margin-bottom:12px;}
+.mini-btn{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:7px 5px;font-size:.75rem;text-align:center;cursor:pointer;transition:all .15s;color:var(--muted);}
+.mini-btn.active{background:rgba(192,40,26,.2);border-color:var(--gold);color:var(--text);}
+.paid-toggle{display:flex;align-items:center;justify-content:space-between;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 12px;cursor:pointer;transition:all .15s;font-size:.83rem;margin-bottom:12px;}
+.paid-toggle:hover{border-color:var(--gold);}
+.paid-toggle .pt-label{color:var(--muted);}
+.paid-toggle .pt-val{font-weight:700;}
+.paid-toggle .pt-val.yes{color:#4caf50;}
+.paid-toggle .pt-val.no{color:#ef5350;}
+.detail-actions{display:flex;gap:6px;}
+.detail-btn{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 6px;font-size:.78rem;cursor:pointer;color:var(--muted);font-family:inherit;transition:all .15s;text-align:center;}
+.detail-btn:hover{border-color:var(--gold);color:var(--text);}
+.detail-btn.primary{background:var(--gold);border-color:var(--gold);color:#fff;}
+.detail-btn.primary:hover{background:var(--gold2);}
+.detail-btn.danger{border-color:rgba(229,57,53,.4);color:#ef5350;}
+.detail-btn.danger:hover{background:rgba(229,57,53,.15);}
+.customer-row{display:flex;align-items:flex-start;gap:8px;padding:5px 0;font-size:.82rem;}
+.customer-row .cr-label{color:var(--muted);min-width:70px;font-size:.75rem;}
+.customer-row .cr-val{color:var(--text);}
+
+/* STATS TAB */
+.chart-label{font-size:.75rem;color:var(--muted);margin-bottom:8px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
+.bar-row{display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:.76rem;}
+.bar-name{width:110px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.bar-track{flex:1;background:var(--bg3);border-radius:4px;height:16px;overflow:hidden;}
+.bar-fill{height:100%;background:linear-gradient(90deg,var(--gold),#e8502a);border-radius:4px;transition:width .4s;}
+.bar-val{width:28px;text-align:right;color:var(--text);font-weight:600;}
+
+/* HISTORY TAB */
+.history-day{margin-bottom:14px;}
+.history-day-header{display:flex;justify-content:space-between;font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--border);}
+.history-item{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.03);cursor:pointer;font-size:.8rem;}
+.history-item:hover{color:var(--gold);}
+.history-item .hi-num{color:var(--gold);font-weight:700;min-width:44px;}
+.history-item .hi-time{color:var(--muted);min-width:44px;}
+.history-item .hi-name{flex:1;color:var(--muted);}
+.history-item .hi-price{color:var(--text);font-weight:600;}
+
+/* TEST BTN */
+.test-btn{position:fixed;bottom:20px;right:20px;background:var(--bg3);border:1px solid var(--border);border-radius:50px;padding:9px 16px;font-size:.76rem;color:var(--muted);cursor:pointer;font-family:inherit;z-index:200;transition:all .2s;}
+.test-btn:hover{border-color:var(--gold);color:var(--text);}
+
+/* NEW ORDER BTN */
+.new-order-btn{position:fixed;bottom:20px;left:20px;background:var(--gold);color:#fff;border:none;border-radius:50%;width:52px;height:52px;font-size:1.6rem;cursor:pointer;font-family:inherit;z-index:200;transition:all .2s;box-shadow:0 4px 20px rgba(192,40,26,.4);display:flex;align-items:center;justify-content:center;}
+.new-order-btn:hover{background:var(--gold2);transform:scale(1.1);box-shadow:0 6px 28px rgba(192,40,26,.6);}
+
+/* NEW ORDER MODAL */
+.no-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(5px);z-index:5000;display:none;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto;}
+.no-overlay.show{display:flex;}
+.no-modal{background:var(--bg2);border:1px solid var(--border);border-radius:16px;width:min(860px,100%);margin:auto;display:flex;flex-direction:column;max-height:calc(100vh - 40px);}
+.no-header{background:linear-gradient(135deg,var(--gold),#e8502a);padding:16px 22px;border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.no-header h2{font-family:'Playfair Display',serif;font-size:1.15rem;color:#fff;display:flex;align-items:center;gap:8px;}
+.no-close{background:rgba(0,0,0,.25);border:none;color:#fff;border-radius:50%;width:32px;height:32px;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.no-body{display:grid;grid-template-columns:1fr 300px;flex:1;overflow:hidden;min-height:0;}
+.no-menu{overflow-y:auto;padding:14px;border-right:1px solid var(--border);}
+.no-cart-col{display:flex;flex-direction:column;overflow:hidden;}
+.no-cat-tabs{display:flex;gap:4px;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.no-cat-tab{background:var(--bg3);border:1px solid var(--border);border-radius:50px;padding:4px 10px;font-size:.72rem;cursor:pointer;color:var(--muted);transition:all .15s;white-space:nowrap;}
+.no-cat-tab:hover{border-color:var(--gold);color:var(--text);}
+.no-cat-tab.active{background:var(--gold);border-color:var(--gold);color:#fff;}
+.no-search{padding:8px 14px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.no-search input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:7px 12px;color:var(--text);font-size:.82rem;font-family:inherit;}
+.no-search input:focus{outline:none;border-color:var(--gold);}
+.no-items{display:flex;flex-direction:column;gap:5px;}
+.no-item{display:flex;align-items:center;justify-content:space-between;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 12px;cursor:pointer;transition:all .15s;}
+.no-item:hover{border-color:var(--gold);}
+.no-item-num{font-size:.68rem;font-weight:700;color:#fff;background:var(--gold);border-radius:3px;padding:1px 5px;margin-right:8px;min-width:26px;text-align:center;}
+.no-item-name{flex:1;font-size:.82rem;color:var(--text);}
+.no-item-price{font-size:.8rem;font-weight:700;color:var(--muted);margin-right:10px;}
+.no-item-add{background:var(--gold);color:#fff;border:none;border-radius:50%;width:24px;height:24px;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.no-item-add:hover{background:var(--gold2);}
+/* CART SIDE */
+.no-cart-header{padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0;font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;}
+.no-cart-items{flex:1;overflow-y:auto;padding:10px 14px;}
+.no-cart-empty{display:flex;align-items:center;justify-content:center;height:80px;color:var(--muted);font-size:.82rem;}
+.no-cart-item{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:.8rem;}
+.no-cart-item:last-child{border-bottom:none;}
+.no-cart-item-name{flex:1;color:var(--text);line-height:1.3;}
+.no-cart-item-note{font-size:.7rem;color:var(--muted);}
+.no-cart-qty{display:flex;align-items:center;gap:5px;}
+.no-cart-qty-btn{background:var(--bg3);border:1px solid var(--border);border-radius:4px;width:20px;height:20px;font-size:.9rem;cursor:pointer;color:var(--text);display:flex;align-items:center;justify-content:center;line-height:1;}
+.no-cart-qty-btn:hover{border-color:var(--gold);}
+.no-cart-qty-num{font-weight:700;min-width:18px;text-align:center;}
+.no-cart-price{font-weight:700;color:var(--text);min-width:55px;text-align:right;}
+/* FORM */
+.no-form{padding:12px 14px;border-top:1px solid var(--border);flex-shrink:0;}
+.no-mode-btns{display:flex;gap:6px;margin-bottom:10px;}
+.no-mode-btn{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 4px;font-size:.75rem;text-align:center;cursor:pointer;color:var(--muted);transition:all .15s;}
+.no-mode-btn.active{background:rgba(192,40,26,.2);border-color:var(--gold);color:var(--text);font-weight:700;}
+.no-field{margin-bottom:8px;}
+.no-label{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;font-weight:700;}
+.no-input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:7px 10px;color:var(--text);font-size:.82rem;font-family:inherit;}
+.no-input:focus{outline:none;border-color:var(--gold);}
+.no-row2{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.no-total-row{display:flex;justify-content:space-between;font-size:.82rem;color:var(--muted);margin-bottom:3px;}
+.no-total-row.grand{color:var(--text);font-weight:700;font-size:.95rem;border-top:1px solid var(--border);padding-top:6px;margin-top:4px;margin-bottom:10px;}
+.no-submit{width:100%;background:linear-gradient(135deg,var(--gold),#e8502a);color:#fff;border:none;border-radius:10px;padding:12px;font-size:.9rem;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s;}
+.no-submit:hover{opacity:.9;}
+.no-submit:disabled{background:#333;cursor:not-allowed;}
+@media(max-width:700px){
+  .no-body{grid-template-columns:1fr;grid-template-rows:1fr auto;}
+  .no-cart-col{max-height:280px;}
+}
+
+/* ITEM POPUP inside modal */
+.nip-overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:6000;display:none;align-items:center;justify-content:center;padding:16px;}
+.nip-overlay.show{display:flex;}
+.nip-box{background:var(--bg2);border:1px solid var(--border);border-radius:16px;width:min(420px,100%);max-height:85vh;overflow-y:auto;box-shadow:0 10px 50px rgba(0,0,0,.5);}
+.nip-header{background:linear-gradient(135deg,var(--bg3),#222);padding:14px 18px;border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:1;border-bottom:1px solid var(--border);}
+.nip-header h3{font-family:'Playfair Display',serif;font-size:1rem;color:var(--text);flex:1;margin-right:8px;}
+.nip-header .nip-base-price{font-size:.82rem;color:var(--gold);font-weight:700;margin-right:10px;}
+.nip-close{background:var(--bg3);border:1px solid var(--border);color:var(--muted);border-radius:50%;width:28px;height:28px;font-size:.85rem;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.nip-close:hover{border-color:var(--gold);color:var(--text);}
+.nip-body{padding:16px 18px;}
+.nip-opt-group{margin-bottom:14px;}
+.nip-opt-title{font-size:.72rem;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700;margin-bottom:8px;}
+.nip-choice{display:flex;align-items:center;gap:10px;padding:9px 12px;border:1.5px solid var(--border);border-radius:9px;margin-bottom:6px;cursor:pointer;transition:all .15s;font-size:.85rem;}
+.nip-choice:hover{border-color:var(--gold);}
+.nip-choice.selected{border-color:var(--gold);background:rgba(192,40,26,.15);}
+.nip-choice input{accent-color:var(--gold);width:15px;height:15px;flex-shrink:0;cursor:pointer;}
+.nip-choice-label{flex:1;color:var(--text);}
+.nip-choice-extra{font-size:.78rem;color:var(--gold);font-weight:700;}
+.nip-footer{padding:0 18px 18px;display:flex;flex-direction:column;gap:10px;}
+.nip-qty-row{display:flex;align-items:center;justify-content:space-between;}
+.nip-qty-label{font-weight:600;font-size:.9rem;color:var(--text);}
+.nip-qty-controls{display:flex;align-items:center;gap:12px;}
+.nip-qty-btn{background:rgba(192,40,26,.2);color:var(--gold);border:1px solid var(--gold);border-radius:50%;width:32px;height:32px;font-size:1.1rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.nip-qty-btn:hover{background:var(--gold);color:#fff;}
+.nip-qty-num{font-size:1.1rem;font-weight:700;min-width:24px;text-align:center;color:var(--text);}
+.nip-unit-price{font-size:.75rem;color:var(--muted);text-align:center;}
+.nip-add-btn{width:100%;background:linear-gradient(135deg,var(--gold),#e8502a);color:#fff;border:none;border-radius:11px;padding:13px;font-size:.92rem;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s;display:flex;align-items:center;justify-content:space-between;}
+.nip-add-btn:hover{opacity:.9;}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:#1a6e34;color:#fff;padding:11px 20px;border-radius:50px;font-weight:600;font-size:.86rem;z-index:9999;transition:transform .3s cubic-bezier(.34,1.4,.64,1);display:flex;align-items:center;gap:7px;box-shadow:0 6px 24px rgba(0,0,0,.3);}
+.toast.show{transform:translateX(-50%) translateY(0);}
+
+/* CONFIRM DIALOG */
+.confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);z-index:8000;display:none;align-items:center;justify-content:center;}
+.confirm-overlay.show{display:flex;}
+.confirm-box{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:28px;max-width:360px;width:90%;text-align:center;}
+.confirm-box h3{font-size:1rem;margin-bottom:10px;}
+.confirm-box p{color:var(--muted);font-size:.84rem;margin-bottom:20px;line-height:1.6;}
+.confirm-btns{display:flex;gap:10px;}
+.confirm-btns button{flex:1;border:none;border-radius:9px;padding:11px;font-size:.88rem;font-weight:700;cursor:pointer;font-family:inherit;}
+.confirm-yes{background:#e53935;color:#fff;}
+.confirm-yes:hover{background:#c62828;}
+.confirm-no{background:var(--bg3);color:var(--muted);}
+.confirm-no:hover{color:var(--text);}
+
+/* PRINT */
+@media print{
+  body *{visibility:hidden;}
+  #printArea,#printArea *{visibility:visible;}
+  #printArea{position:fixed;left:0;top:0;width:100%;}
+}
+
+@media(max-width:900px){
+  .main-area{grid-template-columns:1fr;}
+  .sidebar-col{display:none;}
+  .stats-bar{grid-template-columns:repeat(3,1fr);}
+}
+@media(max-width:600px){
+  .stats-bar{grid-template-columns:1fr 1fr;}
+  .topbar-clock{display:none;}
+}
+
+/* ===== INCOMING ORDER POPUP ===== */
+.incoming-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(6px);z-index:10000;display:none;align-items:center;justify-content:center;}
+.incoming-overlay.show{display:flex;animation:incomingPulse 1.5s ease-in-out 3;}
+@keyframes incomingPulse{0%,100%{background:rgba(0,0,0,.85)}50%{background:rgba(192,40,26,.25)}}
+.incoming-box{background:var(--bg2);border:2px solid var(--gold);border-radius:18px;padding:0;width:min(520px,95vw);max-height:90vh;overflow-y:auto;box-shadow:0 0 60px rgba(192,40,26,.4);}
+.incoming-header{background:linear-gradient(135deg,var(--gold),#e8502a);padding:20px 24px;border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:space-between;}
+.incoming-header h2{font-family:'Playfair Display',serif;font-size:1.3rem;color:#fff;display:flex;align-items:center;gap:10px;}
+.incoming-blink{animation:blink .6s step-end infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+.incoming-body{padding:22px 24px;}
+.incoming-section{margin-bottom:16px;}
+.incoming-section-title{font-size:.68rem;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:700;margin-bottom:8px;}
+.incoming-items{background:var(--bg3);border-radius:10px;padding:12px 14px;}
+.incoming-item-row{display:flex;justify-content:space-between;font-size:.85rem;padding:3px 0;border-bottom:1px solid var(--border);}
+.incoming-item-row:last-child{border-bottom:none;}
+.incoming-item-name{color:var(--text);}
+.incoming-item-price{color:var(--gold);font-weight:700;}
+.incoming-total{display:flex;justify-content:space-between;font-size:1rem;font-weight:700;color:var(--text);margin-top:10px;padding-top:10px;border-top:1px solid var(--border);}
+.incoming-customer{background:var(--bg3);border-radius:10px;padding:12px 14px;font-size:.83rem;}
+.incoming-customer-row{display:flex;gap:8px;padding:2px 0;}
+.incoming-customer-row .icl{color:var(--muted);min-width:65px;font-size:.75rem;}
+.incoming-customer-row .icv{color:var(--text);}
+.incoming-note{background:rgba(232,160,32,.1);border:1px solid rgba(232,160,32,.3);border-radius:8px;padding:10px 13px;font-size:.82rem;color:#e8a020;margin-top:10px;}
+
+/* TIME BUTTONS */
+.incoming-time-title{font-size:.78rem;color:var(--muted);margin-bottom:10px;text-align:center;}
+.incoming-time-btns{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;}
+.time-btn{background:var(--bg3);border:2px solid var(--border);border-radius:10px;padding:14px 8px;text-align:center;cursor:pointer;transition:all .2s;font-family:inherit;}
+.time-btn:hover{border-color:var(--gold);}
+.time-btn.selected{background:rgba(192,40,26,.2);border-color:var(--gold);}
+.time-btn .tb-min{font-size:1.3rem;font-weight:700;color:var(--text);}
+.time-btn .tb-label{font-size:.68rem;color:var(--muted);margin-top:2px;}
+
+/* ACTION BUTTONS */
+.incoming-actions{display:flex;gap:10px;}
+.incoming-accept{flex:1;background:linear-gradient(135deg,#2e7d32,#4caf50);color:#fff;border:none;border-radius:12px;padding:16px;font-size:1rem;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:8px;}
+.incoming-accept:hover{transform:scale(1.02);box-shadow:0 4px 20px rgba(76,175,80,.4);}
+.incoming-accept:disabled{background:#333;cursor:not-allowed;transform:none;box-shadow:none;}
+.incoming-cancel{background:rgba(229,57,53,.15);border:1px solid rgba(229,57,53,.4);color:#ef5350;border-radius:12px;padding:16px 20px;font-size:.9rem;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s;}
+.incoming-cancel:hover{background:rgba(229,57,53,.25);}
+
+/* SPEISEKARTE / AVAILABILITY TAB */
+.menu-cat{margin-bottom:18px;}
+.menu-cat-title{font-size:.68rem;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:700;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid var(--border);}
+.menu-avail-row{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:.82rem;}
+.menu-avail-row:last-child{border-bottom:none;}
+.menu-avail-name{color:var(--text);flex:1;padding-right:8px;}
+.menu-avail-name.disabled{color:var(--muted);text-decoration:line-through;}
+.avail-tag{font-size:.65rem;font-weight:700;border-radius:4px;padding:2px 6px;margin-left:6px;vertical-align:middle;}
+.avail-tag.out{background:rgba(229,57,53,.2);color:#ef5350;}
+
+/* TOGGLE SWITCH */
+.toggle-switch{position:relative;width:38px;height:22px;flex-shrink:0;}
+.toggle-switch input{opacity:0;width:0;height:0;}
+.toggle-slider{position:absolute;cursor:pointer;inset:0;background:#333;border-radius:22px;transition:.2s;}
+.toggle-slider:before{content:'';position:absolute;width:16px;height:16px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s;}
+.toggle-switch input:checked + .toggle-slider{background:#4caf50;}
+.toggle-switch input:checked + .toggle-slider:before{transform:translateX(16px);}
+
+/* CANCEL REASON MODAL */
+.cancel-reason-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:11000;display:none;align-items:center;justify-content:center;}
+.cancel-reason-overlay.show{display:flex;}
+.cancel-reason-box{background:var(--bg2);border:1px solid #e53935;border-radius:14px;padding:28px;max-width:400px;width:92%;box-shadow:0 10px 50px rgba(229,57,53,.3);}
+.cancel-reason-box h3{font-size:1rem;color:#ef5350;margin-bottom:6px;}
+.cancel-reason-box p{color:var(--muted);font-size:.82rem;margin-bottom:18px;line-height:1.5;}
+.cancel-reason-select{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:11px 13px;color:var(--text);font-size:.88rem;font-family:inherit;margin-bottom:10px;cursor:pointer;}
+.cancel-reason-select:focus{outline:none;border-color:#ef5350;}
+.cancel-reason-custom{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:11px 13px;color:var(--text);font-size:.85rem;font-family:inherit;margin-bottom:14px;display:none;}
+.cancel-reason-custom:focus{outline:none;border-color:#ef5350;}
+.cancel-reason-btns{display:flex;gap:8px;}
+.cancel-reason-submit{flex:1;background:#e53935;color:#fff;border:none;border-radius:9px;padding:12px;font-size:.9rem;font-weight:700;cursor:pointer;font-family:inherit;transition:background .2s;}
+.cancel-reason-submit:hover{background:#c62828;}
+.cancel-reason-submit:disabled{background:#555;cursor:not-allowed;}
+.cancel-reason-back{background:var(--bg3);border:1px solid var(--border);color:var(--muted);border-radius:9px;padding:12px 16px;font-size:.85rem;cursor:pointer;font-family:inherit;transition:all .2s;}
+.cancel-reason-back:hover{border-color:var(--border);color:var(--text);}
+
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">🔥 Ararat Grill</div>
+    <div class="login-sub">Admin Dashboard · Beckum</div>
+    <input type="password" id="loginPw" placeholder="Passwort eingeben..." onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="login-btn" onclick="doLogin()">Anmelden →</button>
+    <div class="login-err" id="loginErr">Falsches Passwort</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div>
+      <div class="topbar-logo">🔥 Ararat Grill</div>
+      <div class="topbar-sub">Admin Dashboard</div>
+    </div>
+    <div class="topbar-clock">
+      <div class="time" id="clockTime">--:--:--</div>
+      <div id="clockDate" style="font-size:.72rem;color:var(--muted);"></div>
+    </div>
+    <div class="topbar-right">
+      <div class="toggle-btn" id="openToggle" onclick="toggleOpen()">
+        <span class="toggle-dot" id="toggleDot"></span>
+        <span id="toggleLabel">Geöffnet</span>
+      </div>
+      <button class="logout-btn" onclick="doLogout()">Abmelden</button>
+    </div>
+  </div>
+
+  <!-- ALERT BANNER -->
+  <div class="alert-banner" id="alertBanner">
+    <span class="alert-text" id="alertText">🔔 Neue Bestellung eingegangen!</span>
+    <button class="alert-dismiss" onclick="dismissAlert()">✕ OK</button>
+  </div>
+
+  <!-- STATS BAR -->
+  <div class="stats-bar">
+    <div class="stat-card accent">
+      <div class="stat-label">Umsatz heute</div>
+      <div class="stat-val" id="statRevenue">–</div>
+      <div class="stat-sub" id="statCount">0 Bestellungen</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Aktiv</div>
+      <div class="stat-val" id="statActive">–</div>
+      <div class="stat-sub">In Bearbeitung</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Fertiggestellt</div>
+      <div class="stat-val" id="statDone">–</div>
+      <div class="stat-sub">Heute</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Storniert</div>
+      <div class="stat-val" id="statCancelled">–</div>
+      <div class="stat-sub">Heute</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Unbezahlt</div>
+      <div class="stat-val" id="statUnpaid">–</div>
+      <div class="stat-sub">Offen</div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main-area">
+
+    <!-- ORDERS COLUMN -->
+    <div class="orders-col">
+      <div class="filter-bar">
+        <div class="search-wrap">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="searchInput" placeholder="Bestellnr. oder Name..." oninput="renderOrders()">
+        </div>
+        <div class="filter-pills">
+          <span class="pill active" data-f="all" onclick="setFilter(this,'all')">Alle</span>
+          <span class="pill" data-f="confirmed" onclick="setFilter(this,'confirmed')">Neu</span>
+          <span class="pill" data-f="preparing" onclick="setFilter(this,'preparing')">Zubereitung</span>
+          <span class="pill" data-f="ready" onclick="setFilter(this,'ready')">Fertig</span>
+          <span class="pill" data-f="delivered" onclick="setFilter(this,'delivered')">Geliefert</span>
+        </div>
+        <button class="day-print-btn" onclick="printDayReport()">🖨️ Tagesabschluss</button>
+      </div>
+      <div class="orders-list" id="ordersList"></div>
+    </div>
+
+    <!-- SIDEBAR -->
+    <div class="sidebar-col">
+      <div class="sidebar-tabs">
+        <div class="sidebar-tab active" id="tabDetail" onclick="setSidebarTab('detail')">Detail</div>
+        <div class="sidebar-tab" id="tabStats" onclick="setSidebarTab('stats')">Statistik</div>
+        <div class="sidebar-tab" id="tabHistory" onclick="setSidebarTab('history')">Verlauf</div>
+        <div class="sidebar-tab" id="tabMenu" onclick="setSidebarTab('menu')">Speisekarte</div>
+      </div>
+      <div class="sidebar-content" id="sidebarContent">
+        <div class="no-selection">📋<br>Bestellung auswählen</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- CONFIRM DIALOG -->
+<div class="confirm-overlay" id="confirmOverlay">
+  <div class="confirm-box">
+    <h3 id="confirmTitle">Bestätigung</h3>
+    <p id="confirmMsg"></p>
+    <div class="confirm-btns">
+      <button class="confirm-yes" id="confirmYes">Ja, stornieren</button>
+      <button class="confirm-no" onclick="closeConfirm()">Abbrechen</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast">✅ <span id="toastMsg"></span></div>
+
+<!-- TEST BTN -->
+<button class="test-btn" onclick="sendTestOrder()">🧪 Test-Bestellung</button>
+
+<!-- NEW ORDER BTN -->
+<button class="new-order-btn" onclick="openNewOrder()" title="Neue Bestellung erfassen">+</button>
+
+<!-- NEW ORDER MODAL -->
+<div class="no-overlay" id="noOverlay">
+  <div class="no-modal">
+    <div class="no-header">
+      <h2>Neue Bestellung erfassen</h2>
+      <button class="no-close" onclick="closeNewOrder()">X</button>
+    </div>
+    <div class="no-body">
+      <div class="no-menu" id="noMenuCol">
+        <div style="padding-bottom:10px;display:flex;gap:6px;flex-wrap:wrap;" id="noCatTabs"></div>
+        <div style="padding-bottom:10px;">
+          <input type="text" placeholder="Speise suchen..." id="noSearchInput" oninput="renderNoMenu()" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:7px 12px;color:var(--text);font-size:.82rem;font-family:inherit;">
+        </div>
+        <div id="noItemsList" class="no-items"></div>
+      </div>
+      <div class="no-cart-col">
+        <div class="no-cart-header">Bestellung</div>
+        <div class="no-cart-items" id="noCartItems">
+          <div class="no-cart-empty">Noch keine Artikel</div>
+        </div>
+        <div class="no-form">
+          <div class="no-label">Bestellart</div>
+          <div class="no-mode-btns" style="margin-bottom:8px;">
+            <div class="no-mode-btn active" id="noBtnAbholung" onclick="setNoMode('abholung')">Abholung</div>
+            <div class="no-mode-btn" id="noBtnLieferung" onclick="setNoMode('lieferung')">Lieferung</div>
+          </div>
+          <div class="no-row2" style="margin-bottom:8px;">
+            <div class="no-field">
+              <div class="no-label">Vorname</div>
+              <input class="no-input" id="noFirst" placeholder="Max">
+            </div>
+            <div class="no-field">
+              <div class="no-label">Nachname</div>
+              <input class="no-input" id="noLast" placeholder="Mustermann">
+            </div>
+          </div>
+          <div class="no-field" style="margin-bottom:8px;">
+            <div class="no-label">Telefon</div>
+            <input class="no-input" id="noPhone" placeholder="01234 56789">
+          </div>
+          <div id="noDeliveryFields" style="display:none;">
+            <div class="no-row2" style="margin-bottom:8px;">
+              <div class="no-field">
+                <div class="no-label">Strasse</div>
+                <input class="no-input" id="noStreet" placeholder="Musterstr.">
+              </div>
+              <div class="no-field">
+                <div class="no-label">Nr.</div>
+                <input class="no-input" id="noHouse" placeholder="5">
+              </div>
+            </div>
+            <div class="no-field" style="margin-bottom:8px;">
+              <div class="no-label">Stadt</div>
+              <select class="no-input" id="noCity" onchange="updateNoTotals()">
+                <option value="Beckum">Beckum (+2,50)</option>
+                <option value="Roland">Roland (+3,00)</option>
+                <option value="Vellern">Vellern (+3,00)</option>
+              </select>
+            </div>
+          </div>
+          <div class="no-field" style="margin-bottom:10px;">
+            <div class="no-label">Zahlung</div>
+            <select class="no-input" id="noPayment">
+              <option value="bar">Barzahlung</option>
+              <option value="karte">EC-Karte</option>
+            </select>
+          </div>
+          <div class="no-field" style="margin-bottom:10px;">
+            <div class="no-label">Notiz (optional)</div>
+            <input class="no-input" id="noNote" placeholder="Besondere Wunsche...">
+          </div>
+          <div class="no-total-row"><span>Zwischensumme</span><span id="noSubtotal">0,00 EUR</span></div>
+          <div class="no-total-row" id="noDeliveryRow" style="display:none;"><span>Liefergebühr</span><span id="noDeliveryFee">0,00 EUR</span></div>
+          <div class="no-total-row grand"><span>Gesamt</span><span id="noTotal">0,00 EUR</span></div>
+          <button class="no-submit" id="noSubmitBtn" onclick="submitNewOrder()">Bestellung aufgeben</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ITEM DETAIL POPUP -->
+<div class="nip-overlay" id="noItemPopup">
+  <div class="nip-box">
+    <div class="nip-header">
+      <h3 id="noItemPopupName"></h3>
+      <span class="nip-base-price" id="noItemPopupBasePrice"></span>
+      <button class="nip-close" onclick="closeNoItemPopup()">✕</button>
+    </div>
+    <div class="nip-body">
+      <div id="noItemPopupOpts"></div>
+    </div>
+    <div class="nip-footer">
+      <div class="nip-qty-row">
+        <span class="nip-qty-label">Anzahl</span>
+        <div class="nip-qty-controls">
+          <button class="nip-qty-btn" onclick="changeNipQty(-1)">−</button>
+          <span class="nip-qty-num" id="noItemQtyNum">1</span>
+          <button class="nip-qty-btn" onclick="changeNipQty(1)">+</button>
+        </div>
+      </div>
+      <div class="nip-unit-price">Einzelpreis: <span id="nipUnitPrice">–</span></div>
+      <button class="nip-add-btn" id="nipTotalBtn" onclick="confirmNoItemAdd()">
+        <span>In die Bestellung</span><span>–</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== INCOMING ORDER POPUP ===== -->
+<div class="incoming-overlay" id="incomingOverlay">
+  <div class="incoming-box">
+    <div class="incoming-header">
+      <h2><span class="incoming-blink">🔔</span> Neue Bestellung!</h2>
+      <span id="incomingOrderNum" style="color:rgba(255,255,255,.8);font-size:.95rem;font-weight:700;"></span>
+    </div>
+    <div class="incoming-body">
+      <div class="incoming-section">
+        <div class="incoming-section-title">Bestellte Artikel</div>
+        <div class="incoming-items" id="incomingItems"></div>
+        <div class="incoming-total">
+          <span>Gesamtbetrag</span>
+          <span id="incomingTotal">–</span>
+        </div>
+      </div>
+      <div class="incoming-section">
+        <div class="incoming-section-title">Kunde & Lieferung</div>
+        <div class="incoming-customer" id="incomingCustomer"></div>
+      </div>
+      <div id="incomingNoteWrap" style="display:none;">
+        <div class="incoming-note" id="incomingNote"></div>
+      </div>
+      <div class="incoming-section" style="margin-top:20px;">
+        <div class="incoming-time-title">⏱️ Voraussichtliche Zeit bis zur Lieferung / Abholung:</div>
+        <div class="incoming-time-btns">
+          <div class="time-btn" onclick="selectTime(30,this)">
+            <div class="tb-min">30</div><div class="tb-label">Minuten</div>
+          </div>
+          <div class="time-btn" onclick="selectTime(45,this)">
+            <div class="tb-min">45</div><div class="tb-label">Minuten</div>
+          </div>
+          <div class="time-btn selected" onclick="selectTime(60,this)">
+            <div class="tb-min">60</div><div class="tb-label">Minuten</div>
+          </div>
+          <div class="time-btn" onclick="selectTime(90,this)">
+            <div class="tb-min">90</div><div class="tb-label">Minuten</div>
+          </div>
+        </div>
+      </div>
+      <div class="incoming-actions">
+        <button class="incoming-accept" id="incomingAcceptBtn" onclick="acceptIncoming()">
+          ✓ Bestellung annehmen & Bon drucken
+        </button>
+        <button class="incoming-cancel" onclick="cancelIncoming()">✕ Ablehnen</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== STORNO-GRUND MODAL ===== -->
+<div class="cancel-reason-overlay" id="cancelReasonOverlay">
+  <div class="cancel-reason-box">
+    <h3>❌ Bestellung ablehnen</h3>
+    <p>Wähle einen Grund. Der Kunde bekommt eine automatische Storno-E-Mail mit diesem Grund.</p>
+    <select class="cancel-reason-select" id="cancelReasonSelect" onchange="onReasonChange()">
+      <option value="">– Grund auswählen –</option>
+      <option value="Zutat leider ausverkauft">Zutat leider ausverkauft</option>
+      <option value="Aktuell zu viele Bestellungen – bitte später erneut bestellen">Aktuell zu viele Bestellungen</option>
+      <option value="Lieferadresse liegt außerhalb unseres Liefergebiets">Außerhalb Liefergebiet</option>
+      <option value="Restaurant hat bereits geschlossen">Restaurant bereits geschlossen</option>
+      <option value="Technisches Problem bei der Bestellung">Technisches Problem</option>
+      <option value="sonstiges">Sonstiges (selbst eingeben)</option>
+    </select>
+    <input class="cancel-reason-custom" id="cancelReasonCustom" placeholder="Grund eingeben..." type="text">
+    <div class="cancel-reason-btns">
+      <button class="cancel-reason-back" onclick="closeCancelReason()">← Zurück</button>
+      <button class="cancel-reason-submit" id="cancelReasonBtn" onclick="submitCancelIncoming()">
+        Bestellung ablehnen & Kunde informieren
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── CONFIG ───────────────────────────────────────────────────────
+const API_BASE = 'https://ararat-beckum-backend.onrender.com/api';
+const DASHBOARD_PASSWORD = 'Ararat2025Admin';
+const ADMIN_API_TOKEN = 'AraratGeheimToken2025xyz';
+
+// ─── STATE ────────────────────────────────────────────────────────
+let token = sessionStorage.getItem('araratAdminToken') || '';
+let orders = [];
+let selectedId = null;
+let currentFilter = 'all';
+let knownIds = new Set();
+let isOpen = true;
+let sidebarTab = 'detail';
+let pollingTimer = null;
+
+// ─── AUTH ─────────────────────────────────────────────────────────
+async function doLogin(){
+  const pw = document.getElementById('loginPw').value;
+  document.getElementById('loginErr').style.display='none';
+  try{
+    const res = await fetch(API_BASE+'/admin/login',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({password:pw})
+    });
+    if(res.ok){
+      const d = await res.json();
+      token = d.token;
+      sessionStorage.setItem('araratAdminToken',token);
+      startApp();
+    } else {
+      // Also try local password check as fallback
+      if(pw===DASHBOARD_PASSWORD){
+        token = ADMIN_API_TOKEN;
+        sessionStorage.setItem('araratAdminToken',token);
+        startApp();
+      } else {
+        document.getElementById('loginErr').style.display='block';
+      }
+    }
+  } catch(e){
+    // Offline fallback
+    if(pw===DASHBOARD_PASSWORD){
+      token=ADMIN_API_TOKEN;
+      sessionStorage.setItem('araratAdminToken',token);
+      startApp();
+    } else {
+      document.getElementById('loginErr').style.display='block';
+    }
+  }
+}
+
+function doLogout(){
+  sessionStorage.removeItem('araratAdminToken');
+  token='';clearInterval(pollingTimer);
+  document.getElementById('app').style.display='none';
+  document.getElementById('loginScreen').style.display='flex';
+}
+
+// ─── API HELPER ───────────────────────────────────────────────────
+async function api(path,opts={}){
+  const res = await fetch(API_BASE+path,{
+    ...opts,
+    headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json',...(opts.headers||{})}
+  });
+  if(res.status===401){doLogout();return null;}
+  return res;
+}
+
+// ─── START ────────────────────────────────────────────────────────
+function startApp(){
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('app').style.display='flex';
+  document.getElementById('app').style.flexDirection='column';
+  document.getElementById('app').style.height='100vh';
+  startClock();
+  loadAvailability();
+  loadOrders();
+  pollingTimer = setInterval(loadOrders,5000);
+}
+
+// Check if already logged in
+if(token){startApp();}
+
+// ─── CLOCK ────────────────────────────────────────────────────────
+function startClock(){
+  function tick(){
+    const now=new Date();
+    document.getElementById('clockTime').textContent=now.toLocaleTimeString('de-DE');
+    document.getElementById('clockDate').textContent=now.toLocaleDateString('de-DE',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'});
+  }
+  tick();setInterval(tick,1000);
+}
+
+// ─── LOAD ORDERS ──────────────────────────────────────────────────
+async function loadOrders(){
+  try{
+    const res = await api('/admin/orders');
+    if(!res)return;
+    const data = await res.json();
+    orders = data.orders||[];
+    const pendingOrders = data.pending||[];
+    const stats = data.stats||{};
+    updateStats(stats);
+
+    // Pending-Bestellungen prüfen: neue ins Modal, Alarm laufen lassen
+    const pendingNewIds = pendingOrders.filter(o=>!knownIds.has(o._id));
+    // Alle bekannten IDs updaten (orders + pending)
+    [...orders, ...pendingOrders].forEach(o=>knownIds.add(o._id));
+
+    if(pendingNewIds.length > 0){
+      pendingNewIds.forEach(o=>incomingQueue.push(o));
+      if(!incomingActive) showNextIncoming();
+    }
+
+    // Alarm-Ton läuft dauerhaft solange Modal offen ist (gesteuert durch showNextIncoming)
+    // Wenn keine pending mehr und Modal offen → ok, closeIncomingPopup kümmert sich drum
+
+    renderOrders();
+    if(sidebarTab==='stats') renderStatsTab();
+    if(sidebarTab==='history') renderHistoryTab();
+    if(selectedId) renderDetailTab(orders.find(o=>o._id===selectedId));
+  } catch(e){console.warn('Polling error',e);}
+}
+
+// ─── STATS ────────────────────────────────────────────────────────
+function updateStats(stats){
+  const today = orders.filter(o=>{
+    const d=new Date(o.createdAt);
+    const n=new Date();
+    return d.toDateString()===n.toDateString();
+  });
+  const revenue = today.filter(o=>o.status!=='cancelled').reduce((s,o)=>s+(o.total||0),0);
+  const active = today.filter(o=>['confirmed','preparing'].includes(o.status)).length;
+  const done = today.filter(o=>['ready','delivered'].includes(o.status)).length;
+  const cancelled = today.filter(o=>o.status==='cancelled').length;
+  const unpaid = orders.filter(o=>o.paymentStatus!=='paid'&&o.status!=='cancelled').length;
+
+  document.getElementById('statRevenue').textContent=fmt(revenue);
+  document.getElementById('statCount').textContent=today.filter(o=>o.status!=='cancelled').length+' Bestellungen';
+  document.getElementById('statActive').textContent=active;
+  document.getElementById('statDone').textContent=done;
+  document.getElementById('statCancelled').textContent=cancelled;
+  document.getElementById('statUnpaid').textContent=unpaid;
+}
+
+// ─── RENDER ORDERS ────────────────────────────────────────────────
+function setFilter(el,f){
+  currentFilter=f;
+  document.querySelectorAll('.pill').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  renderOrders();
+}
+
+function renderOrders(){
+  const q=document.getElementById('searchInput').value.toLowerCase();
+  let list=orders;
+  if(currentFilter!=='all') list=list.filter(o=>o.status===currentFilter);
+  if(q) list=list.filter(o=>
+    (o.orderNum&&String(o.orderNum).includes(q))||
+    (o.customer&&(o.customer.first+' '+o.customer.last).toLowerCase().includes(q))
+  );
+  const container=document.getElementById('ordersList');
+  if(!list.length){
+    container.innerHTML='<div class="empty-state">📭<br>Keine Bestellungen</div>';return;
+  }
+  container.innerHTML=list.map(o=>orderCardHTML(o)).join('');
+}
+
+function orderCardHTML(o){
+  const statusMap={confirmed:'Neu ✓',preparing:'In Zubereitung',ready:'Fertiggestellt',delivered:'Geliefert',cancelled:'Storniert',pending:'⏳ Ausstehend'};
+  const badgeMap={confirmed:'new',preparing:'prep',ready:'ready',delivered:'del',cancelled:'cancel',pending:'cancel'};
+  const nextMap={pending:'confirmed',confirmed:'preparing',preparing:'ready',ready:'delivered'};
+  const nextLabel={pending:'🔔 Annehmen',confirmed:'➡ Zubereitung',preparing:'➡ Fertig',ready:'➡ Geliefert'};
+  const status=statusMap[o.status]||o.status;
+  const badgeCls='badge-'+(badgeMap[o.status]||'new');
+  const time=new Date(o.createdAt).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+  const modeIcon=o.mode==='lieferung'?'🛵':'🏃';
+  const payIcon=o.payment==='bar'?'💵':o.payment==='karte'?'💳':'📱';
+  const itemsPreview=(o.items||[]).slice(0,3).map(i=>`${i.qty}× ${i.name}`).join(' · ')+(o.items&&o.items.length>3?` +${o.items.length-3} mehr`:'');
+  const paidBadge=o.paymentStatus==='paid'
+    ?`<span class="badge badge-paid" onclick="event.stopPropagation();togglePaid('${o._id}')">✓ Bezahlt</span>`
+    :`<span class="badge badge-unpaid" onclick="event.stopPropagation();togglePaid('${o._id}')">✗ Offen</span>`;
+  const nextBtn=nextMap[o.status]?`<button class="oc-btn next" onclick="event.stopPropagation();nextStatus('${o._id}','${nextMap[o.status]}')">${nextLabel[o.status]}</button>`:'';
+  const sel=selectedId===o._id?' selected':'';
+  return `<div class="order-card${sel}" onclick="selectOrder('${o._id}')">
+    <div class="oc-top">
+      <span class="oc-num">#${o.orderNum||'–'}</span>
+      <span class="oc-time">${time}</span>
+      <span class="oc-mode">${modeIcon} ${payIcon}</span>
+      <div class="oc-badges">
+        <span class="badge ${badgeCls}">${status}</span>
+        ${paidBadge}
+      </div>
+    </div>
+    <div class="oc-items">${itemsPreview||'–'}</div>
+    <div class="oc-bottom">
+      <span class="oc-price">${fmt(o.total||0)}</span>
+      <div class="oc-actions">
+        ${nextBtn}
+        <button class="oc-btn" onclick="event.stopPropagation();printOrder('${o._id}')">🖨️</button>
+        ${o.status!=='cancelled'?`<button class="oc-btn cancel" onclick="event.stopPropagation();confirmCancel('${o._id}','${o.orderNum||''}')">✕</button>`:''}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ─── SELECT ORDER ─────────────────────────────────────────────────
+function selectOrder(id){
+  selectedId=id;
+  renderOrders();
+  setSidebarTab('detail');
+}
+
+// ─── SIDEBAR TABS ─────────────────────────────────────────────────
+function setSidebarTab(tab){
+  sidebarTab=tab;
+  ['detail','stats','history','menu'].forEach(t=>{
+    document.getElementById('tab'+t.charAt(0).toUpperCase()+t.slice(1)).classList.toggle('active',t===tab);
+  });
+  if(tab==='detail') renderDetailTab(orders.find(o=>o._id===selectedId));
+  else if(tab==='stats') renderStatsTab();
+  else if(tab==='menu') renderMenuTab();
+  else renderHistoryTab();
+}
+
+function renderDetailTab(o){
+  const c=document.getElementById('sidebarContent');
+  if(!o){c.innerHTML='<div class="no-selection">📋<br>Bestellung auswählen</div>';return;}
+  const time=new Date(o.createdAt).toLocaleString('de-DE');
+  const statusMap={confirmed:'Neu ✓',preparing:'In Zubereitung',ready:'Fertiggestellt',delivered:'Geliefert',cancelled:'Storniert',pending:'⏳ Ausstehend'};
+  const nextMap={pending:'confirmed',confirmed:'preparing',preparing:'ready',ready:'delivered'};
+  const nextLabel={pending:'🔔 Annehmen',confirmed:'➡ Zubereitung',preparing:'➡ Fertig',ready:'➡ Geliefert'};
+
+  const itemsHtml=(o.items||[]).map(i=>`
+    <div class="detail-item">
+      <span class="detail-item-name">${i.qty}× ${i.name}${i.note?' <span style="font-size:.72rem;color:#666">(${i.note})</span>':''}</span>
+      <span class="detail-item-price">${fmt((i.price||0)*i.qty)}</span>
+    </div>`).join('');
+
+  const addr=o.mode==='lieferung'&&o.customer?`${o.customer.street||''} ${o.customer.house||''}, ${o.customer.city||''}`:'Abholung';
+
+  c.innerHTML=`
+    <div class="detail-num">#${o.orderNum||'–'}</div>
+    <div class="detail-meta">${time}</div>
+
+    <div class="detail-section">
+      <div class="detail-section-title">Artikel</div>
+      ${itemsHtml}
+    </div>
+    <div class="detail-total-row"><span>Zwischensumme</span><span>${fmt(o.subtotal||0)}</span></div>
+    ${o.deliveryFee?`<div class="detail-total-row"><span>Liefergebühr</span><span>${fmt(o.deliveryFee)}</span></div>`:''}
+    <div class="detail-total-row grand"><span>Gesamt</span><span>${fmt(o.total||0)}</span></div>
+    <div style="height:14px;"></div>
+
+    <div class="detail-section">
+      <div class="detail-section-title">Kunde</div>
+      <div class="customer-row"><span class="cr-label">Name</span><span class="cr-val">${(o.customer?.first||'')+' '+(o.customer?.last||'')}</span></div>
+      <div class="customer-row"><span class="cr-label">E-Mail</span><span class="cr-val" style="font-size:.75rem;">${o.customer?.email||'–'}</span></div>
+      ${o.customer?.phone?`<div class="customer-row"><span class="cr-label">Tel</span><span class="cr-val">${o.customer.phone}</span></div>`:''}
+      <div class="customer-row"><span class="cr-label">Adresse</span><span class="cr-val" style="font-size:.75rem;">${addr}</span></div>
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-label">Status ändern</div>
+      <select class="status-select" onchange="changeStatus('${o._id}',this.value)">
+        <option value="confirmed" ${o.status==='confirmed'?'selected':''}>Neu</option>
+        <option value="preparing" ${o.status==='preparing'?'selected':''}>In Zubereitung</option>
+        <option value="ready" ${o.status==='ready'?'selected':''}>Fertiggestellt</option>
+        <option value="delivered" ${o.status==='delivered'?'selected':''}>Geliefert</option>
+        <option value="cancelled" ${o.status==='cancelled'?'selected':''}>Storniert</option>
+      </select>
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-label">Lieferart</div>
+      <div class="mode-btns">
+        <div class="mini-btn ${o.mode==='lieferung'?'active':''}">🛵 Lieferung</div>
+        <div class="mini-btn ${o.mode==='abholung'?'active':''}">🏃 Abholung</div>
+      </div>
+      <div class="detail-label">Zahlungsart</div>
+      <div class="pay-btns">
+        <div class="mini-btn ${o.payment==='bar'?'active':''}">💵 Bar</div>
+        <div class="mini-btn ${o.payment==='karte'?'active':''}">💳 Karte</div>
+        <div class="mini-btn ${o.payment==='online'?'active':''}">📱 Online</div>
+      </div>
+      <div class="paid-toggle" onclick="togglePaid('${o._id}')">
+        <span class="pt-label">Bezahlt?</span>
+        <span class="pt-val ${o.paymentStatus==='paid'?'yes':'no'}">${o.paymentStatus==='paid'?'✓ Ja':'✗ Nein'}</span>
+      </div>
+    </div>
+
+    <div class="detail-actions">
+      ${nextMap[o.status]?`<button class="detail-btn primary" onclick="nextStatus('${o._id}','${nextMap[o.status]}')">${nextLabel[o.status]}</button>`:'<div style="flex:1"></div>'}
+      <button class="detail-btn" onclick="printOrder('${o._id}')">🖨️</button>
+      ${o.status!=='cancelled'?`<button class="detail-btn danger" onclick="confirmCancel('${o._id}','${o.orderNum||''}')">✕ Storno</button>`:''}
+    </div>`;
+}
+
+function renderStatsTab(){
+  const c=document.getElementById('sidebarContent');
+  const today=orders.filter(o=>{
+    const d=new Date(o.createdAt);
+    return d.toDateString()===new Date().toDateString()&&o.status!=='cancelled';
+  });
+  // Top dishes
+  const dishCount={};
+  today.forEach(o=>(o.items||[]).forEach(i=>{
+    dishCount[i.name]=(dishCount[i.name]||0)+i.qty;
+  }));
+  const dishes=Object.entries(dishCount).sort((a,b)=>b[1]-a[1]).slice(0,7);
+  const maxD=dishes[0]?dishes[0][1]:1;
+
+  // Orders by hour
+  const hourCount={};
+  for(let h=11;h<=21;h++) hourCount[h]=0;
+  today.forEach(o=>{const h=new Date(o.createdAt).getHours();if(hourCount[h]!==undefined)hourCount[h]++;});
+  const maxH=Math.max(...Object.values(hourCount),1);
+
+  c.innerHTML=`
+    <div class="chart-label">Top-Gerichte heute</div>
+    ${dishes.length?dishes.map(([name,cnt])=>`
+      <div class="bar-row">
+        <span class="bar-name" title="${name}">${name}</span>
+        <div class="bar-track"><div class="bar-fill" style="width:${(cnt/maxD*100).toFixed(0)}%"></div></div>
+        <span class="bar-val">${cnt}</span>
+      </div>`).join(''):'<div style="color:var(--muted);font-size:.8rem;">Noch keine Daten</div>'}
+    <div style="height:20px;"></div>
+    <div class="chart-label">Bestellungen nach Stunde</div>
+    ${Object.entries(hourCount).map(([h,cnt])=>`
+      <div class="bar-row">
+        <span class="bar-name">${h}:00</span>
+        <div class="bar-track"><div class="bar-fill" style="width:${(cnt/maxH*100).toFixed(0)}%"></div></div>
+        <span class="bar-val">${cnt}</span>
+      </div>`).join('')}`;
+}
+
+// ─── SPEISEKARTE / VERFÜGBARKEIT ──────────────────────────────────
+let disabledItems = new Set(); // lokal gecacht
+
+async function loadAvailability(){
+  try{
+    const res = await api('/admin/availability');
+    if(!res) return;
+    const data = await res.json();
+    disabledItems = new Set(
+      (data.items||[]).filter(i=>i.available===false).map(i=>i.itemName)
+    );
+  } catch(e){ console.warn('Availability load error',e); }
+}
+
+async function toggleAvailability(itemName, available){
+  // Optimistisch lokal updaten
+  if(available){ disabledItems.delete(itemName); }
+  else { disabledItems.add(itemName); }
+
+  try{
+    await api('/admin/availability',{
+      method:'PATCH',
+      body: JSON.stringify({ itemName, available })
+    });
+    showToast(available ? `✓ "${itemName}" wieder verfügbar` : `❌ "${itemName}" als ausverkauft markiert`);
+  } catch(e){
+    // Rollback bei Fehler
+    if(available){ disabledItems.add(itemName); }
+    else { disabledItems.delete(itemName); }
+    showToast('Fehler beim Speichern');
+    renderMenuTab();
+  }
+}
+
+function renderMenuTab(){
+  const c = document.getElementById('sidebarContent');
+
+  // Alle Artikel aus NO_MENU (das ist die vollständige Speisekarte)
+  const html = NO_MENU.map(cat => {
+    const rows = cat.items.map(item => {
+      const isDisabled = disabledItems.has(item.name);
+      const toggleId = 'avail_' + item.name.replace(/[^a-zA-Z0-9]/g,'_');
+      return `<div class="menu-avail-row">
+        <span class="menu-avail-name${isDisabled?' disabled':''}">
+          ${item.name}
+          ${isDisabled?'<span class="avail-tag out">Ausverkauft</span>':''}
+        </span>
+        <label class="toggle-switch" title="${isDisabled?'Wieder verfügbar machen':'Als ausverkauft markieren'}">
+          <input type="checkbox" id="${toggleId}" ${isDisabled?'':'checked'}
+            onchange="toggleAvailability('${item.name.replace(/'/g,"\\'")}', this.checked)">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>`;
+    }).join('');
+    return `<div class="menu-cat">
+      <div class="menu-cat-title">${cat.cat}</div>
+      ${rows}
+    </div>`;
+  }).join('');
+
+  const outCount = disabledItems.size;
+  c.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <span style="font-size:.78rem;font-weight:700;color:var(--text);">Verfügbarkeit</span>
+      ${outCount>0?`<span style="background:rgba(229,57,53,.2);color:#ef5350;border-radius:50px;padding:2px 9px;font-size:.7rem;font-weight:700;">${outCount} ausverkauft</span>`:'<span style="color:#4caf50;font-size:.72rem;">✓ Alles verfügbar</span>'}
+    </div>
+    <div style="font-size:.72rem;color:var(--muted);margin-bottom:14px;">Schalter aus = Artikel wird auf der Website als <strong style="color:#ef5350">Ausverkauft</strong> angezeigt.</div>
+    ${html}`;
+}
+
+function renderHistoryTab(){
+  const c=document.getElementById('sidebarContent');
+  // Group by day
+  const groups={};
+  [...orders].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).forEach(o=>{
+    const day=new Date(o.createdAt).toLocaleDateString('de-DE',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'});
+    if(!groups[day]) groups[day]=[];
+    groups[day].push(o);
+  });
+  if(!Object.keys(groups).length){c.innerHTML='<div class="no-selection">Keine Daten</div>';return;}
+  c.innerHTML=Object.entries(groups).map(([day,items])=>{
+    const rev=items.filter(o=>o.status!=='cancelled').reduce((s,o)=>s+(o.total||0),0);
+    return `<div class="history-day">
+      <div class="history-day-header"><span>${day}</span><span>${fmt(rev)}</span></div>
+      ${items.map(o=>`
+        <div class="history-item" onclick="selectOrder('${o._id}');setSidebarTab('detail')">
+          <span class="hi-num">#${o.orderNum||'–'}</span>
+          <span class="hi-time">${new Date(o.createdAt).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})}</span>
+          <span class="hi-name">${(o.customer?.first||'')+' '+(o.customer?.last||'')}</span>
+          <span class="hi-price">${fmt(o.total||0)}</span>
+        </div>`).join('')}
+    </div>`;
+  }).join('');
+}
+
+// ─── STATUS ───────────────────────────────────────────────────────
+async function nextStatus(id,nextS){
+  await changeStatus(id,nextS);
+}
+async function changeStatus(id,status){
+  try{
+    const res=await api(`/admin/orders/${id}/status`,{method:'PATCH',body:JSON.stringify({status})});
+    if(res&&res.ok){
+      const o=orders.find(o=>o._id===id);
+      if(o) o.status=status;
+      renderOrders();
+      if(selectedId===id) renderDetailTab(orders.find(o=>o._id===id));
+      showToast('Status aktualisiert');
+    }
+  } catch(e){showToast('Fehler beim Aktualisieren');}
+}
+
+// ─── PAID TOGGLE ──────────────────────────────────────────────────
+async function togglePaid(id){
+  const o=orders.find(o=>o._id===id);
+  if(!o) return;
+  const newStatus=o.paymentStatus==='paid'?'unpaid':'paid';
+  try{
+    const res=await api(`/admin/orders/${id}/payment`,{method:'PATCH',body:JSON.stringify({paymentStatus:newStatus})});
+    if(res&&res.ok){
+      o.paymentStatus=newStatus;
+      renderOrders();
+      if(selectedId===id) renderDetailTab(o);
+      showToast(newStatus==='paid'?'Als bezahlt markiert':'Als offen markiert');
+    }
+  } catch(e){
+    // Optimistic update fallback
+    o.paymentStatus=newStatus;
+    renderOrders();
+    if(selectedId===id) renderDetailTab(o);
+  }
+}
+
+// ─── CANCEL ───────────────────────────────────────────────────────
+function confirmCancel(id,num){
+  document.getElementById('confirmMsg').textContent=`Bestellung #${num} wirklich stornieren? Der Kunde erhält eine Storno-E-Mail.`;
+  document.getElementById('confirmYes').onclick=()=>{closeConfirm();cancelOrder(id);};
+  document.getElementById('confirmOverlay').classList.add('show');
+}
+function closeConfirm(){document.getElementById('confirmOverlay').classList.remove('show');}
+
+async function cancelOrder(id){
+  try{
+    const res=await api(`/admin/orders/${id}`,{method:'DELETE',body:JSON.stringify({cancelReason:'Storniert durch Restaurant'})});
+    if(res&&res.ok){
+      orders=orders.filter(o=>o._id!==id);
+      if(selectedId===id){selectedId=null;}
+      renderOrders();
+      renderDetailTab(null);
+      showToast('Bestellung storniert');
+    }
+  } catch(e){showToast('Fehler beim Stornieren');}
+}
+
+// ─── OPEN/CLOSED TOGGLE ───────────────────────────────────────────
+function toggleOpen(){
+  isOpen=!isOpen;
+  document.getElementById('toggleDot').classList.toggle('closed',!isOpen);
+  document.getElementById('toggleLabel').textContent=isOpen?'Geöffnet':'Geschlossen';
+}
+
+// ─── PRINT ────────────────────────────────────────────────────────
+function printOrder(id, estimatedMins){
+  estimatedMins = estimatedMins || 35;
+  const o=orders.find(o=>o._id===id)||incomingCurrentOrder;
+  if(!o) return;
+  const time=new Date(o.createdAt).toLocaleString('de-DE');
+  const modeText=o.mode==='lieferung'?'LIEFERUNG':'ABHOLUNG';
+  const addr=o.mode==='lieferung'&&o.customer?`${o.customer.street||''} ${o.customer.house||''}, ${o.customer.city||''}`:'';
+  const itemsRows=(o.items||[]).map(i=>`<tr><td>${i.qty}×</td><td>${i.name}${i.note?' ('+i.note+')':''}</td><td style="text-align:right">${fmt((i.price||0)*i.qty)}</td></tr>`).join('');
+
+  const win=window.open('','_blank','width=400,height=600');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <style>
+    body{font-family:monospace;font-size:13px;padding:20px;max-width:300px;margin:0 auto;}
+    h2{text-align:center;font-size:16px;border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:10px;}
+    .center{text-align:center;} .bold{font-weight:bold;}
+    table{width:100%;border-collapse:collapse;margin:8px 0;}
+    td{padding:2px 0;vertical-align:top;}
+    .line{border-top:1px dashed #000;margin:8px 0;}
+    .total{font-weight:bold;font-size:14px;}
+  </style></head><body>
+  <h2>🔥 Ararat Grill</h2>
+  <div class="center">Nordwall 45 · 59269 Beckum<br>Tel: 02521-9009414</div>
+  <div class="line"></div>
+  <div><b>Bestellung:</b> #${o.orderNum||'–'}</div>
+  <div><b>Zeit:</b> ${time}</div>
+  <div class="line"></div>
+  <div class="bold center">${modeText}</div>
+  ${addr?`<div class="center">${addr}</div>`:''}
+  <div class="center">${(o.customer?.first||'')+' '+(o.customer?.last||'')}</div>
+  <div class="line"></div>
+  <table>${itemsRows}</table>
+  <div class="line"></div>
+  ${o.subtotal?`<div style="display:flex;justify-content:space-between"><span>Zwischensumme</span><span>${fmt(o.subtotal)}</span></div>`:''}
+  ${o.deliveryFee?`<div style="display:flex;justify-content:space-between"><span>Liefergebühr</span><span>${fmt(o.deliveryFee)}</span></div>`:''}
+  <div style="display:flex;justify-content:space-between" class="total"><span>GESAMT</span><span>${fmt(o.total||0)}</span></div>
+  <div class="line"></div>
+  <div>Zahlung: ${o.payment==='bar'?'Barzahlung':o.payment==='karte'?'EC-Karte':'Online'}</div>
+  <div>Bezahlt: ${o.paymentStatus==='paid'?'✓ Ja':'✗ Nein'}</div>
+  <div class="line"></div>
+  <div class="center bold">Geschätzte Zeit: ~${estimatedMins} Minuten</div>
+  <div class="center bold" style="margin-top:10px;">Vielen Dank!</div>
+  <script>window.onload=()=>{window.print();}<\/script>
+  </body></html>`);
+  win.document.close();
+  // PrintNode API Druck
+  api(`/admin/orders/${id}/print`,{method:'POST'}).catch(()=>{});
+}
+
+function printDayReport(){
+  const today=orders.filter(o=>{
+    const d=new Date(o.createdAt);
+    return d.toDateString()===new Date().toDateString();
+  });
+  const revenue=today.filter(o=>o.status!=='cancelled').reduce((s,o)=>s+(o.total||0),0);
+  const rows=today.map(o=>`
+    <tr>
+      <td>#${o.orderNum||'–'}</td>
+      <td>${new Date(o.createdAt).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})}</td>
+      <td>${(o.customer?.first||'')+' '+(o.customer?.last||'')}</td>
+      <td>${o.status==='cancelled'?'Storniert':o.status==='delivered'?'Geliefert':o.status==='ready'?'Fertig':'Aktiv'}</td>
+      <td style="text-align:right">${o.status==='cancelled'?'–':fmt(o.total||0)}</td>
+      <td>${(o.items||[]).slice(0,2).map(i=>i.qty+'× '+i.name).join(', ')}</td>
+    </tr>`).join('');
+
+  const win=window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <style>body{font-family:sans-serif;font-size:12px;padding:20px;}h1{font-size:16px;}table{width:100%;border-collapse:collapse;margin-top:14px;}th,td{border:1px solid #ccc;padding:5px 8px;text-align:left;}th{background:#f0f0f0;}.total{font-weight:bold;}</style></head><body>
+  <h1>🔥 Ararat Grill – Tagesabschluss</h1>
+  <p>Datum: ${new Date().toLocaleDateString('de-DE')} · Bestellungen: ${today.length} · Umsatz: ${fmt(revenue)}</p>
+  <table><thead><tr><th>Nr</th><th>Zeit</th><th>Kunde</th><th>Status</th><th>Betrag</th><th>Artikel</th></tr></thead>
+  <tbody>${rows}</tbody>
+  <tfoot><tr><td colspan="4" class="total">Gesamt</td><td class="total" style="text-align:right">${fmt(revenue)}</td><td></td></tr></tfoot>
+  </table>
+  <script>window.onload=()=>{window.print();}<\/script></body></html>`);
+  win.document.close();
+}
+
+// ─── ALERT & SOUND ────────────────────────────────────────────────
+function showAlert(msg){
+  document.getElementById('alertText').textContent=msg;
+  document.getElementById('alertBanner').classList.add('show');
+}
+function dismissAlert(){document.getElementById('alertBanner').classList.remove('show');}
+
+// Dauerhafter Alarm – läuft in Schleife bis stopAlarm() aufgerufen wird
+let alarmInterval = null;
+let alarmCtx = null;
+
+function startAlarm(){
+  if(alarmInterval) return; // Läuft schon
+  function beepOnce(){
+    try{
+      if(!alarmCtx || alarmCtx.state === 'closed'){
+        alarmCtx = new(window.AudioContext||window.webkitAudioContext)();
+      }
+      // Doppelton: erster Ton
+      const osc1 = alarmCtx.createOscillator();
+      const gain1 = alarmCtx.createGain();
+      osc1.connect(gain1); gain1.connect(alarmCtx.destination);
+      osc1.frequency.value = 880;
+      gain1.gain.setValueAtTime(0.4, alarmCtx.currentTime);
+      gain1.gain.exponentialRampToValueAtTime(0.001, alarmCtx.currentTime + 0.25);
+      osc1.start(); osc1.stop(alarmCtx.currentTime + 0.25);
+      // Zweiter Ton leicht versetzt
+      const osc2 = alarmCtx.createOscillator();
+      const gain2 = alarmCtx.createGain();
+      osc2.connect(gain2); gain2.connect(alarmCtx.destination);
+      osc2.frequency.value = 1100;
+      gain2.gain.setValueAtTime(0, alarmCtx.currentTime + 0.3);
+      gain2.gain.setValueAtTime(0.4, alarmCtx.currentTime + 0.3);
+      gain2.gain.exponentialRampToValueAtTime(0.001, alarmCtx.currentTime + 0.55);
+      osc2.start(alarmCtx.currentTime + 0.3);
+      osc2.stop(alarmCtx.currentTime + 0.55);
+    } catch(e){}
+  }
+  beepOnce();
+  alarmInterval = setInterval(beepOnce, 1800);
+}
+
+function stopAlarm(){
+  if(alarmInterval){ clearInterval(alarmInterval); alarmInterval = null; }
+}
+
+function playBeep(){ startAlarm(); } // Kompatibilität
+
+// ─── TEST ORDER ───────────────────────────────────────────────────
+async function sendTestOrder(){
+  const payload={
+    mode:'lieferung',payment:'bar',
+    customer:{first:'Test',last:'Kunde',email:'test@test.de',phone:'01234',city:'Beckum',street:'Teststr.',house:'1'},
+    items:[{name:'Döner-Tasche',price:7.5,qty:2,note:''},{name:'Ayran (Joghurtgetränk)',price:2.2,qty:1,note:''}],
+    subtotal:17.2,deliveryFee:2.0,total:19.2,note:'Testbestellung'
+  };
+  try{
+    const res=await fetch(API_BASE+'/orders',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    if(res.ok){showToast('Test-Bestellung gesendet!');await loadOrders();}
+    else showToast('Fehler beim Senden');
+  } catch(e){showToast('Verbindungsfehler');}
+}
+
+// ─── TOAST ────────────────────────────────────────────────────────
+function showToast(msg){
+  const t=document.getElementById('toast');
+  document.getElementById('toastMsg').textContent=msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+
+// ─── INCOMING ORDER POPUP ─────────────────────────────────
+let incomingQueue = [];
+let incomingActive = false;
+let incomingCurrentOrder = null;
+let selectedMinutes = 60;
+
+function showNextIncoming(){
+  if(incomingQueue.length === 0){ incomingActive = false; stopAlarm(); return; }
+  incomingActive = true;
+  const o = incomingQueue.shift();
+  incomingCurrentOrder = o;
+  selectedMinutes = 60;
+
+  // Reset time button selection
+  document.querySelectorAll('.time-btn').forEach(b=>{
+    b.classList.toggle('selected', b.querySelector('.tb-min').textContent === '60');
+  });
+
+  // Fill order num
+  document.getElementById('incomingOrderNum').textContent = '#' + (o.orderNum||'–');
+
+  // Fill items
+  const itemsHtml = (o.items||[]).map(i=>`
+    <div class="incoming-item-row">
+      <span class="incoming-item-name">${i.qty}× ${i.name}${i.note?' <span style="font-size:.72rem;color:var(--muted)">('+i.note+')</span>':''}</span>
+      <span class="incoming-item-price">${fmt((i.price||0)*i.qty)}</span>
+    </div>`).join('');
+  document.getElementById('incomingItems').innerHTML = itemsHtml;
+  document.getElementById('incomingTotal').textContent = fmt(o.total||0);
+
+  // Fill customer
+  const modeIcon = o.mode==='lieferung'?'🛵 Lieferung':'🏃 Abholung';
+  const payIcon = o.payment==='bar'?'💵 Barzahlung':o.payment==='stripe'?'💳 Kreditkarte':'💳 EC-Karte';
+  const payPaidBadge = o.paymentStatus==='paid'
+    ? '<span style="background:#1a3a1a;color:#4caf50;border-radius:4px;padding:1px 6px;font-size:.72rem;margin-left:6px;">✓ Bereits bezahlt</span>'
+    : '<span style="background:#3a1a1a;color:#ef5350;border-radius:4px;padding:1px 6px;font-size:.72rem;margin-left:6px;">noch offen</span>';
+  const addr = o.mode==='lieferung'&&o.customer
+    ? `${o.customer.street||''} ${o.customer.house||''}, ${o.customer.city||''}`
+    : '–';
+  document.getElementById('incomingCustomer').innerHTML = `
+    <div class="incoming-customer-row"><span class="icl">Name</span><span class="icv">${(o.customer?.first||'')+' '+(o.customer?.last||'')}</span></div>
+    ${o.customer?.phone?`<div class="incoming-customer-row"><span class="icl">Tel</span><span class="icv">${o.customer.phone}</span></div>`:''}
+    <div class="incoming-customer-row"><span class="icl">E-Mail</span><span class="icv" style="font-size:.75rem">${o.customer?.email||'–'}</span></div>
+    <div class="incoming-customer-row"><span class="icl">Art</span><span class="icv">${modeIcon}</span></div>
+    ${o.mode==='lieferung'?`<div class="incoming-customer-row"><span class="icl">Adresse</span><span class="icv" style="font-size:.78rem">${addr}</span></div>`:''}
+    <div class="incoming-customer-row"><span class="icl">Zahlung</span><span class="icv">${payIcon}${payPaidBadge}</span></div>
+  `;
+
+  // Note
+  if(o.note){
+    document.getElementById('incomingNoteWrap').style.display='block';
+    document.getElementById('incomingNote').textContent = '📝 ' + o.note;
+  } else {
+    document.getElementById('incomingNoteWrap').style.display='none';
+  }
+
+  document.getElementById('incomingOverlay').classList.add('show');
+  startAlarm(); // Dauerhafter Alarm bis Mitarbeiter reagiert
+}
+
+function selectTime(mins, el){
+  selectedMinutes = mins;
+  document.querySelectorAll('.time-btn').forEach(b=>b.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+async function acceptIncoming(){
+  if(!incomingCurrentOrder) return;
+  const btn = document.getElementById('incomingAcceptBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Wird verarbeitet...';
+
+  const o = incomingCurrentOrder;
+  try{
+    // 1. Backend: Status auf confirmed setzen + Zeit speichern + E-Mail + Druck auslösen
+    const res = await api(`/admin/orders/${o._id}/confirm`, {
+      method: 'PATCH',
+      body: JSON.stringify({ estimatedMinutes: selectedMinutes })
+    });
+
+    if(!res || !res.ok){
+      throw new Error('Server-Fehler');
+    }
+
+    // 2. Bon im Browser drucken (öffnet Druckfenster)
+    printOrder(o._id, selectedMinutes);
+
+    // 3. Alarm stoppen, Modal schließen
+    stopAlarm();
+    closeIncomingPopup();
+    await loadOrders();
+    showToast(`✓ Bestellung #${o.orderNum||''} angenommen – ${selectedMinutes} Min.`);
+
+  } catch(e){
+    btn.disabled = false;
+    btn.innerHTML = '✓ Bestellung annehmen & Bon drucken';
+    showToast('Fehler beim Annehmen – bitte erneut versuchen');
+  }
+}
+
+function cancelIncoming(){
+  if(!incomingCurrentOrder) return;
+  // Zeige Storno-Grund Auswahl
+  document.getElementById('cancelReasonOverlay').classList.add('show');
+}
+
+async function submitCancelIncoming(){
+  if(!incomingCurrentOrder) return;
+  const reasonEl = document.getElementById('cancelReasonSelect');
+  const customEl = document.getElementById('cancelReasonCustom');
+  let reason = reasonEl.value;
+  if(reason === 'sonstiges') reason = customEl.value.trim() || 'Sonstiger Grund';
+  if(!reason){ showToast('Bitte Grund auswählen'); return; }
+
+  const o = incomingCurrentOrder;
+  const btn = document.getElementById('cancelReasonBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Wird storniert...';
+
+  try{
+    await api(`/admin/orders/${o._id}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ cancelReason: reason })
+    });
+    showToast(`Bestellung #${o.orderNum||''} abgelehnt – Kunde wird informiert`);
+  } catch(e){
+    showToast('Fehler beim Stornieren');
+  }
+
+  closeCancelReason();
+  stopAlarm();
+  closeIncomingPopup();
+  await loadOrders();
+}
+
+function closeCancelReason(){
+  document.getElementById('cancelReasonOverlay').classList.remove('show');
+  document.getElementById('cancelReasonCustom').style.display = 'none';
+  document.getElementById('cancelReasonCustom').value = '';
+  document.getElementById('cancelReasonSelect').value = '';
+  const btn = document.getElementById('cancelReasonBtn');
+  if(btn){ btn.disabled = false; btn.textContent = 'Bestellung ablehnen & Kunde informieren'; }
+}
+
+function onReasonChange(){
+  const val = document.getElementById('cancelReasonSelect').value;
+  document.getElementById('cancelReasonCustom').style.display = val === 'sonstiges' ? 'block' : 'none';
+}
+
+function closeIncomingPopup(){
+  document.getElementById('incomingOverlay').classList.remove('show');
+  incomingCurrentOrder = null;
+  incomingActive = false;
+  const btn = document.getElementById('incomingAcceptBtn');
+  if(btn){ btn.disabled = false; btn.innerHTML = '✓ Bestellung annehmen & Bon drucken'; }
+  // Nächste Bestellung aus Queue anzeigen (Alarm läuft weiter wenn Queue nicht leer)
+  if(incomingQueue.length > 0){
+    setTimeout(showNextIncoming, 400);
+  } else {
+    stopAlarm(); // Nur stoppen wenn keine weiteren Bestellungen
+  }
+}
+
+
+// ─── NEUE BESTELLUNG ──────────────────────────────────────────────
+
+// ── Shared option blocks (identisch zur Kundenseite) ───────────────
+const NO_FLEISCH = {type:'radio',title:'Fleisch auswählen',required:true,options:[
+  {label:'Hähnchenfleisch Döner',extra:0},
+  {label:'Kalb- & Putendöner',extra:0}
+]};
+const NO_SALAT = {type:'checkbox',title:'Salat auswählen',options:[
+  {label:'Gurke'},{label:'Weißkohl'},{label:'Rotkohl'},{label:'Zwiebeln'},{label:'Tomate'},{label:'Eisbergsalat'}
+]};
+const NO_SOSSE = {type:'radio',title:'Soße auswählen',required:true,options:[
+  {label:'Soße scharf'},{label:'Joghurtsoße'},{label:'Cocktailsoße'},{label:'Tzatziki'},{label:'Ohne Soße'}
+]};
+const NO_KAESE_EXTRA = {type:'checkbox',title:'Extras (optional)',options:[
+  {label:'Käse',extra:1}
+]};
+const NO_BEILAGE = {type:'radio',title:'Beilage auswählen',required:true,options:[
+  {label:'Pommes'},{label:'Reis'},{label:'Ohne Beilage'}
+]};
+const NO_PIZZA_EXTRAS = {type:'checkbox',title:'Extras (optional, je +1,00 €)',options:[
+  {label:'Truthahnschinken',extra:1},{label:'Paprika',extra:1},{label:'Hähnchenbruststreifen',extra:1},
+  {label:'Kalb- & Putendönerfleisch',extra:1},{label:'Hirtenkäse',extra:1},{label:'Spinat',extra:1},
+  {label:'Zwiebeln',extra:1},{label:'Knoblauchwurst (türkisch)',extra:1},{label:'Tomaten',extra:1},
+  {label:'Champignons',extra:1},{label:'Salami',extra:1},{label:'Oliven',extra:1},{label:'Peperoni',extra:1},
+  {label:'Thunfisch',extra:1},{label:'Ananas',extra:1},{label:'Mais',extra:1},{label:'Hähnchendönerfleisch',extra:1}
+]};
+const NO_PIZZA_SAUCE = {type:'checkbox',title:'Sonderwunsch – Sauce ändern (optional)',options:[
+  {label:'Sauce Hollandaise statt Tomatensauce',extra:0.5}
+]};
+const NO_PIZZA_CONFIG = [NO_PIZZA_SAUCE, NO_PIZZA_EXTRAS];
+const NO_SEELE_SOSSE = {type:'radio',title:'Soße auswählen',required:true,options:[
+  {label:'Tzatziki'},{label:'Scharfe Soße'},{label:'Cocktailsoße'},{label:'Joghurtsoße'},{label:'Ohne Dressing'}
+]};
+const NO_SALAT_DRESSING = {type:'radio',title:'Soße auswählen',required:true,options:[
+  {label:'Tzatziki'},{label:'Scharfe Soße'},{label:'Cocktailsoße'},{label:'Ohne Dressing'},{label:'Joghurtsauce'}
+]};
+
+// ── POPUP_CONFIG pro Artikel – exakt wie Kundenseite ───────────────
+const NO_POPUP_CONFIG = {
+  // ── Döner ──
+  'Döner-Tasche':              [NO_FLEISCH, NO_SALAT, NO_SOSSE, NO_KAESE_EXTRA],
+  'Pomm-Döner':                [NO_FLEISCH, NO_SALAT, NO_SOSSE, NO_KAESE_EXTRA],
+  'Döner-Box':                 [NO_FLEISCH, NO_SOSSE],
+  'Linsensuppe': [
+    {type:'radio',title:'Variante wählen',required:true,triggerGroup:1,options:[
+      {label:'Mit Brot – 7,50 €',extra:0,basePrice:7.5,hideGroup:true},
+      {label:'Mit Dönerfleisch – 8,50 €',extra:0,basePrice:8.5,hideGroup:false},
+    ]},
+    {type:'radio',title:'Fleisch auswählen',required:false,conditionalGroup:true,options:[
+      {label:'Hähnchenfleisch Döner',extra:0},
+      {label:'Kalb- & Putendöner',extra:0},
+    ]},
+  ],
+  'Sucuk-Tasche':              [NO_SALAT, NO_SOSSE, NO_KAESE_EXTRA],
+  'Salat-Tasche':              [NO_SALAT, NO_SOSSE, NO_KAESE_EXTRA],
+  'Pommes-Tasche':             [NO_SALAT, NO_SOSSE, NO_KAESE_EXTRA],
+  'Dürüm (vegetarisch)':       [NO_SALAT, NO_SOSSE, NO_KAESE_EXTRA],
+  'Dürüm':                     [NO_FLEISCH, NO_SALAT, NO_SOSSE, NO_KAESE_EXTRA],
+  'Dürüm Spezial':             [NO_FLEISCH, NO_SALAT,
+    {type:'radio',title:'Käse auswählen',required:true,options:[{label:'Hirtenkäse'},{label:'Gouda'},{label:'Ohne Käse'}]},
+    NO_SOSSE,
+    {type:'checkbox',title:'Extras (optional)',options:[{label:'Extra Käse',extra:1}]}
+  ],
+  'Falafel-Tasche':            [NO_SALAT, NO_SOSSE, NO_KAESE_EXTRA],
+  'Falafel-Rolle':             [NO_SALAT, NO_SOSSE, NO_KAESE_EXTRA],
+  'Falafel-Teller':            [NO_BEILAGE, NO_SOSSE],
+  'Döner Teller':              [NO_FLEISCH, NO_BEILAGE, NO_SOSSE],
+  'Holländischer Dönerteller': [NO_BEILAGE, NO_SOSSE],
+  'Iskender Kebab':            [NO_FLEISCH],
+  'Saray Döner':               [NO_FLEISCH],
+  // ── Grill ──
+  'Tavuk Sis':    [NO_BEILAGE, NO_SOSSE],
+  'Adana Kebab':  [NO_BEILAGE, NO_SOSSE],
+  'Köfte-Teller': [NO_BEILAGE, NO_SOSSE],
+  'Ararat-Teller':[NO_BEILAGE, NO_SOSSE],
+  'Kuzu Sis':     [NO_BEILAGE, NO_SOSSE],
+  'Pirzola':      [NO_BEILAGE, NO_SOSSE],
+  'Grill-Teller': [NO_BEILAGE, NO_SOSSE],
+  // ── Pizza (Größe wird auto-prepended) ──
+  'Pizza Margherita':   NO_PIZZA_CONFIG,
+  'Pizza Cipolla':      NO_PIZZA_CONFIG,
+  'Pizza Prosciutto':   NO_PIZZA_CONFIG,
+  'Pizza Tanzli':       NO_PIZZA_CONFIG,
+  'Meine Pizza':        [NO_FLEISCH, ...NO_PIZZA_CONFIG],
+  'Pizza Salami':       NO_PIZZA_CONFIG,
+  'Pizza Paprika':      NO_PIZZA_CONFIG,
+  'Pizza Diavolo':      NO_PIZZA_CONFIG,
+  'Pizza Funghi':       NO_PIZZA_CONFIG,
+  'Pizza Tonno':        NO_PIZZA_CONFIG,
+  'Pizza Döner':        [NO_FLEISCH, ...NO_PIZZA_CONFIG],
+  'Pizza Döner Spezial':[NO_FLEISCH, ...NO_PIZZA_CONFIG],
+  'Pizza Sucuk':        NO_PIZZA_CONFIG,
+  'Pizza Spinat':       NO_PIZZA_CONFIG,
+  'Pizza Hawaii':       NO_PIZZA_CONFIG,
+  'Pizza Beckum':       NO_PIZZA_CONFIG,
+  'Pizza Vegetaria':    NO_PIZZA_CONFIG,
+  'Pizza Ararat':       NO_PIZZA_CONFIG,
+  'Pizza Calzone':      NO_PIZZA_CONFIG,
+  'Pizza Bolognese':    NO_PIZZA_CONFIG,
+  // ── Seele ──
+  'Seele 1': [NO_SEELE_SOSSE],
+  'Seele 2': [NO_SEELE_SOSSE],
+  'Seele 3': [NO_SEELE_SOSSE],
+  'Seele 4': [NO_SEELE_SOSSE],
+  'Seele 5': [NO_SEELE_SOSSE],
+  'Seele 6': [NO_SEELE_SOSSE],
+  'Seele 7': [NO_SEELE_SOSSE],
+  // ── Pide ──
+  'Peynirli':           [NO_SEELE_SOSSE],
+  'Peynirli-Yumurtali': [NO_SEELE_SOSSE],
+  'Kiymali Hackfleisch':[NO_SEELE_SOSSE],
+  'Kiymali Yumurtali':  [NO_SEELE_SOSSE],
+  'Spinati':            [NO_SEELE_SOSSE],
+  'Dönerli':            [NO_FLEISCH, NO_SEELE_SOSSE],
+  'Sucuklu':            [NO_SEELE_SOSSE],
+  'Sebzeli Gemüse':     [NO_SEELE_SOSSE],
+  'Thunfischli':        [NO_SEELE_SOSSE],
+  'Salami und Truthahn-Schinken': [NO_SEELE_SOSSE],
+  'Beckum Pide':        [NO_SEELE_SOSSE],
+  'ARARAT-Pide':        [NO_FLEISCH, NO_SEELE_SOSSE],
+  'Kusbasi Sebzeli':    [NO_SEELE_SOSSE],
+  // ── Lahmacun ──
+  'Lahmacun':                  [NO_SALAT, NO_SOSSE],
+  'Lahmacun mit Salat':        [NO_SALAT, NO_SOSSE],
+  'Lahmacun mit Dönerfleisch': [NO_FLEISCH, NO_SALAT, NO_SOSSE],
+  'Lahmacun-Spezial':          [NO_FLEISCH,
+    {type:'radio',title:'Käse auswählen',required:true,options:[{label:'Hirtenkäse'},{label:'Gouda'},{label:'Ohne Käse'}]}
+  ],
+  // ── Salate ──
+  'Gemischter Salat':    [NO_SALAT_DRESSING],
+  'Bauernsalat':         [NO_SALAT_DRESSING],
+  'Döner-Salat':         [NO_FLEISCH, NO_SALAT_DRESSING],
+  'Ararat-Salat':        [NO_SALAT_DRESSING],
+  'Thunfischsalat':      [NO_SALAT_DRESSING],
+  'Hawaiisalat':         [NO_SALAT_DRESSING],
+  'Rucola-Salat':        [NO_SALAT_DRESSING],
+  'Hähnchenbrust-Salat': [NO_SALAT_DRESSING],
+  'Lachs-Salat':         [NO_SALAT_DRESSING],
+  // ── Baguettes ──
+  'Baguette 1': [NO_SALAT, NO_SOSSE],
+  'Baguette 2': [NO_SALAT, NO_SOSSE],
+  'Baguette 3': [NO_SALAT, NO_SOSSE],
+  'Baguette 4': [NO_SALAT, NO_SOSSE],
+  'Baguette 5': [NO_FLEISCH, NO_SALAT, NO_SOSSE],
+  'Baguette 6': [NO_SALAT, NO_SOSSE],
+  // ── Spezial ──
+  'Thunfisch-Tasche':         [NO_SALAT, NO_SOSSE],
+  'Hähnchenschnitzel-Tasche': [NO_SALAT, NO_SOSSE],
+  'Chicken-Nuggets-Tasche':   [NO_SALAT, NO_SOSSE],
+  'Döner-Sucuk-Tasche': [
+    {type:'radio',title:'Dönerfleisch auswählen',required:true,options:[
+      {label:'Hähnchenfleisch Döner',extra:0},
+      {label:'Kalb- & Putendöner',extra:0},
+    ]},
+    NO_SALAT, NO_SOSSE,
+  ],
+  'Big Döner': [NO_FLEISCH, NO_SALAT, NO_SOSSE],
+  'Gemüse-Spezial': [
+    NO_SALAT, NO_SOSSE,
+    {type:'radio',title:'Dönerfleisch hinzufügen (optional)',required:false,options:[
+      {label:'Kein Dönerfleisch',extra:0},
+      {label:'Hähnchenfleisch Döner +3,00 €',extra:3},
+      {label:'Kalb- & Putendöner +3,00 €',extra:3},
+    ]},
+  ],
+  'Vegetarischer-Teller': [
+    {type:'radio',title:'Beilage auswählen',required:true,options:[{label:'Reis',extra:0},{label:'Pommes',extra:0}]},
+  ],
+  'Pizza-Brötchen': [
+    {type:'radio',title:'Auswahl',required:true,options:[
+      {label:'Kräuterbutter',extra:0},{label:'Scharfe Soße',extra:0},
+      {label:'Joghurtsoße',extra:0},{label:'Cocktailsoße',extra:0},{label:'Tzatziki',extra:0},
+    ]},
+  ],
+  'Familien-Pizza': [
+    {type:'checkbox',title:'Beläge auswählen (3 Stück inklusive)',note:'Bis zu 3 Beläge sind im Preis enthalten. Jeder weitere Belag +1,00 €.',maxFree:3,options:[
+      {label:'Truthahnschinken',extra:1},{label:'Paprika',extra:1},{label:'Hähnchenbruststreifen',extra:1},
+      {label:'Dönerfleisch (Hähnchen)',extra:1},{label:'Dönerfleisch (Kalb/Pute)',extra:1},
+      {label:'Hirtenkäse',extra:1},{label:'Spinat',extra:1},{label:'Zwiebeln',extra:1},
+      {label:'Knoblauchwurst (türkisch)',extra:1},{label:'Tomaten',extra:1},{label:'Champignons',extra:1},
+      {label:'Salami',extra:1},{label:'Oliven',extra:1},{label:'Peperoni',extra:1},
+      {label:'Thunfisch',extra:1},{label:'Ananas',extra:1},{label:'Mais',extra:1},{label:'Mozzarella',extra:1},
+    ]},
+  ],
+  'Pizza-Shrimps':     NO_PIZZA_CONFIG,
+  'Pizza-Meeresfrüchte': NO_PIZZA_CONFIG,
+  'ARARAT-Pide (Spezial)': [NO_FLEISCH, NO_SEELE_SOSSE],
+  'Pizza-Salmone':     NO_PIZZA_CONFIG,
+  'Baklava': [{type:'radio',title:'Menge',required:true,options:[
+    {label:'6 Stück – 5,00 €', extra:0, basePrice:5.0},
+    {label:'10 Stück – 8,00 €',extra:0, basePrice:8.0},
+  ]}],
+};
+
+// ── NO_MENU – exakt die Artikel der Website ────────────────────────
+const NO_MENU = [
+  {cat:'🥙 Döner', items:[
+    {num:'01', name:'Döner-Tasche',              price:8.0},
+    {num:'02', name:'Pomm-Döner',                price:9.0},
+    {num:'03', name:'Döner-Box',                 price:9.0},
+    {num:'04', name:'Linsensuppe',               price:7.5},
+    {num:'05', name:'Nudelauflauf',              price:15.0},
+    {num:'06', name:'Sucuk-Tasche',              price:9.0},
+    {num:'07', name:'Salat-Tasche',              price:6.5},
+    {num:'08', name:'Pommes-Tasche',             price:7.0},
+    {num:'09', name:'Dürüm (vegetarisch)',        price:8.5},
+    {num:'10', name:'Dürüm',                     price:10.0},
+    {num:'11', name:'Dürüm Spezial',             price:11.0},
+    {num:'12', name:'Falafel-Tasche',            price:7.5},
+    {num:'13', name:'Falafel-Rolle',             price:9.5},
+    {num:'14', name:'Falafel-Teller',            price:13.0},
+    {num:'15', name:'Döner Teller',              price:15.0},
+    {num:'15a',name:'Holländischer Dönerteller', price:17.0},
+    {num:'16', name:'Iskender Kebab',            price:17.0},
+    {num:'17', name:'Saray Döner',               price:17.0},
+  ]},
+  {cat:'🔥 Grill', items:[
+    {num:'18', name:'Tavuk Sis',    price:19.0},
+    {num:'19', name:'Adana Kebab',  price:20.0},
+    {num:'20', name:'Köfte-Teller', price:19.0},
+    {num:'21', name:'Ararat-Teller',price:23.0},
+    {num:'22', name:'Kuzu Sis',     price:20.0},
+    {num:'23', name:'Pirzola',      price:21.0},
+    {num:'24', name:'Grill-Teller', price:25.0},
+  ]},
+  {cat:'🍕 Pizza', items:[
+    {num:'25', name:'Pizza Margherita',   price:7.0,  price2:8.5},
+    {num:'26', name:'Pizza Cipolla',      price:7.5,  price2:9.0},
+    {num:'27', name:'Pizza Prosciutto',   price:9.0,  price2:11.0},
+    {num:'28', name:'Pizza Tanzli',       price:9.0,  price2:11.0},
+    {num:'29', name:'Meine Pizza',        price:9.0,  price2:11.0},
+    {num:'30', name:'Pizza Salami',       price:8.5,  price2:10.0},
+    {num:'31', name:'Pizza Paprika',      price:8.0,  price2:9.5},
+    {num:'32', name:'Pizza Diavolo',      price:8.5,  price2:10.5},
+    {num:'33', name:'Pizza Funghi',       price:8.0,  price2:9.5},
+    {num:'34', name:'Pizza Tonno',        price:8.5,  price2:10.5},
+    {num:'35', name:'Pizza Döner',        price:9.0,  price2:11.0},
+    {num:'36', name:'Pizza Döner Spezial',price:9.5,  price2:11.5},
+    {num:'37', name:'Pizza Sucuk',        price:9.5,  price2:12.0},
+    {num:'38', name:'Pizza Spinat',       price:9.5,  price2:12.0},
+    {num:'39', name:'Pizza Hawaii',       price:9.0,  price2:10.5},
+    {num:'40', name:'Pizza Beckum',       price:9.5,  price2:12.0},
+    {num:'41', name:'Pizza Vegetaria',    price:9.0,  price2:11.5},
+    {num:'42', name:'Pizza Ararat',       price:9.5,  price2:12.0},
+    {num:'43', name:'Pizza Calzone',      price:9.5,  price2:12.0},
+    {num:'43a',name:'Pizza Bolognese',    price:9.0,  price2:11.0},
+  ]},
+  {cat:'🍞 Seele', items:[
+    {num:'Seele 1', name:'Seele 1', price:10.5},
+    {num:'Seele 2', name:'Seele 2', price:11.5},
+    {num:'Seele 3', name:'Seele 3', price:12.0},
+    {num:'Seele 4', name:'Seele 4', price:11.5},
+    {num:'Seele 5', name:'Seele 5', price:13.0},
+    {num:'Seele 6', name:'Seele 6', price:13.5},
+    {num:'Seele 7', name:'Seele 7', price:14.0},
+  ]},
+  {cat:'🫓 Pide', items:[
+    {num:'44', name:'Peynirli',           price:11.0},
+    {num:'45', name:'Peynirli-Yumurtali', price:12.0},
+    {num:'46', name:'Kiymali Hackfleisch',price:12.0},
+    {num:'47', name:'Kiymali Yumurtali',  price:12.0},
+    {num:'48', name:'Spinati',            price:12.0},
+    {num:'49', name:'Dönerli',            price:13.0},
+    {num:'50', name:'Sucuklu',            price:13.0},
+    {num:'51', name:'Sebzeli Gemüse',     price:12.5},
+    {num:'52', name:'Thunfischli',        price:12.5},
+    {num:'53', name:'Salami und Truthahn-Schinken', price:12.0},
+    {num:'54', name:'Beckum Pide',        price:13.0},
+    {num:'55', name:'ARARAT-Pide',        price:13.5},
+    {num:'56', name:'Kusbasi Sebzeli',    price:13.0},
+  ]},
+  {cat:'🫔 Lahmacun', items:[
+    {num:'57', name:'Lahmacun',                  price:5.0},
+    {num:'58', name:'Lahmacun mit Salat',        price:8.5},
+    {num:'59', name:'Lahmacun mit Dönerfleisch', price:10.0},
+    {num:'60', name:'Lahmacun-Spezial',          price:11.0},
+  ]},
+  {cat:'🍟 Imbiss', items:[
+    {num:'61', name:'Pommes Frites (klein)',                   price:3.5},
+    {num:'62', name:'Pommes Frites (groß)',                    price:4.5},
+    {num:'63', name:'Pommes Frites Spezial',                   price:6.0},
+    {num:'64', name:'Chicken-Nuggets (6 Stück)',               price:5.0},
+    {num:'65', name:'Chicken-Nuggets mit Pommes',              price:7.0},
+    {num:'66', name:'Hähnchen-Schnitzel (160g)',               price:5.5},
+    {num:'67', name:'Hähnchen-Schnitzel mit Pommes',           price:8.5},
+    {num:'68', name:'Hähnchen-Schnitzel mit Pommes und Salat', price:10.0},
+    {num:'69', name:'Bratwurst',                               price:3.5},
+    {num:'70', name:'Currywurst',                              price:4.0},
+    {num:'71', name:'Bratwurst mit Pommes',                    price:6.0},
+    {num:'72', name:'Currywurst mit Pommes',                   price:7.0},
+    {num:'73', name:'Salat-Mayonnaise / Ketchup',              price:0.5},
+    {num:'74', name:'Jäger-, Curry- oder Sauce Hollandaise',   price:1.5},
+  ]},
+  {cat:'🥗 Salate', items:[
+    {num:'75', name:'Gemischter Salat',    price:9.0},
+    {num:'76', name:'Bauernsalat',         price:9.0},
+    {num:'77', name:'Döner-Salat',         price:13.0},
+    {num:'78', name:'Ararat-Salat',        price:10.0},
+    {num:'79', name:'Thunfischsalat',      price:10.5},
+    {num:'80', name:'Hawaiisalat',         price:10.0},
+    {num:'81', name:'Rucola-Salat',        price:11.0},
+    {num:'82', name:'Hähnchenbrust-Salat', price:12.0},
+    {num:'83', name:'Lachs-Salat',         price:11.5},
+  ]},
+  {cat:'🥖 Baguettes', items:[
+    {num:'Bag. 1', name:'Baguette 1', price:8.0},
+    {num:'Bag. 2', name:'Baguette 2', price:8.0},
+    {num:'Bag. 3', name:'Baguette 3', price:8.5},
+    {num:'Bag. 4', name:'Baguette 4', price:8.5},
+    {num:'Bag. 5', name:'Baguette 5', price:8.5},
+    {num:'Bag. 6', name:'Baguette 6', price:8.5},
+  ]},
+  {cat:'⭐ Spezial', items:[
+    {num:'84', name:'Thunfisch-Tasche',         price:8.5},
+    {num:'85', name:'Hähnchenschnitzel-Tasche', price:8.5},
+    {num:'86', name:'Chicken-Nuggets-Tasche',   price:7.5},
+    {num:'87', name:'Döner-Sucuk-Tasche',       price:9.0},
+    {num:'88', name:'Big Döner',                price:15.0},
+    {num:'89', name:'Gemüse-Spezial',           price:13.5},
+    {num:'90', name:'Vegetarischer-Teller',     price:13.5},
+    {num:'91', name:'Maccaroni-Pizza',          price:11.5},
+    {num:'92', name:'Pizza-Brötchen',           price:5.5},
+    {num:'93', name:'Pizza-Brötchen mit Gouda', price:9.5},
+    {num:'94', name:'Pizza-Brötchen gefüllt',   price:11.5},
+    {num:'95', name:'Familien-Pizza',           price:30.0},
+    {num:'96', name:'Pizza-Shrimps',            price:9.0,  price2:11.0},
+    {num:'97', name:'Pizza-Meeresfrüchte',      price:9.0,  price2:11.0},
+    {num:'98', name:'ARARAT-Pide (Spezial)',    price:13.0},
+    {num:'99', name:'Pizza-Salmone',            price:9.0,  price2:11.0},
+    {num:'100',name:'Baklava',                  price:5.0},
+  ]},
+  {cat:'☕ Getränke', items:[
+    {num:'–', name:'Kaffee',                                    price:2.5},
+    {num:'–', name:'Cola / Cola Zero / Mezzo Mix / Fanta / Sprite', price:2.5},
+    {num:'–', name:'Mineralwasser',                             price:2.5},
+    {num:'–', name:'Uludag Türkische Brause',                   price:2.5},
+    {num:'–', name:'Ayran (Joghurtgetränk)',                    price:2.2},
+    {num:'–', name:'Apfelschorle',                              price:2.5},
+    {num:'–', name:'Vitamalz',                                  price:2.5},
+    {num:'–', name:'Tee',                                       price:1.0},
+  ]},
+  {cat:'🧸 Kinder', items:[
+    {num:'KM', name:'Kinder Menü – Dönerfleisch',   price:7.5},
+    {num:'KM', name:'Kinder Menü – Chicken-Nuggets',price:7.5},
+  ]},
+];
+
+let noCart = [];
+let noMode = 'abholung';
+let noActiveCat = 'Alle';
+let noCurrentItem = null;
+let noCurrentOptSelections = {};
+let noCurrentQty = 1;
+let noExtraPrice = 0;
+let noMaxFreeClickOrder = [];
+const DELIVERY_FEES = {Beckum:2.50,Roland:3.00,Vellern:3.00};
+
+function openNewOrder(){
+  noCart = [];
+  noMode = 'abholung';
+  noActiveCat = 'Alle';
+  document.getElementById('noFirst').value='';
+  document.getElementById('noLast').value='';
+  document.getElementById('noPhone').value='';
+  document.getElementById('noStreet').value='';
+  document.getElementById('noHouse').value='';
+  document.getElementById('noNote').value='';
+  document.getElementById('noSearchInput').value='';
+  setNoMode('abholung');
+  buildNoCatTabs();
+  renderNoMenu();
+  renderNoCart();
+  document.getElementById('noOverlay').classList.add('show');
+}
+
+function closeNewOrder(){
+  document.getElementById('noOverlay').classList.remove('show');
+  closeNoItemPopup();
+}
+
+function buildNoCatTabs(){
+  const cats = ['Alle', ...NO_MENU.map(c=>c.cat)];
+  document.getElementById('noCatTabs').innerHTML = cats.map(c=>
+    `<div class="no-cat-tab${c===noActiveCat?' active':''}" data-cat="${c}" onclick="setNoCat(this)">${c}</div>`
+  ).join('');
+}
+
+function setNoCat(el){
+  noActiveCat = el.getAttribute('data-cat') || el.textContent;
+  document.querySelectorAll('.no-cat-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderNoMenu();
+}
+
+function renderNoMenu(){
+  const q = document.getElementById('noSearchInput').value.toLowerCase();
+  let cats = NO_MENU;
+  if(noActiveCat !== 'Alle') cats = cats.filter(c=>c.cat===noActiveCat);
+  let html = '';
+  cats.forEach(cat=>{
+    let items = cat.items;
+    if(q) items = items.filter(i=>i.name.toLowerCase().includes(q)||(i.num&&i.num.includes(q)));
+    if(!items.length) return;
+    if(noActiveCat==='Alle') html+=`<div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700;padding:8px 0 4px;">${cat.cat}</div>`;
+    items.forEach(item=>{
+      const isPizza = cat.cat === '🍕 Pizza' || (cat.cat === '⭐ Spezial' && item.price2);
+      const displayPrice = isPizza ? 'ab '+item.price.toFixed(2).replace('.',',') : item.price.toFixed(2).replace('.',',');
+      html+=`<div class="no-item" data-cat="${cat.cat}" data-name="${item.name.replace(/"/g,'&quot;')}" onclick="openNoItemPopupEl(this)">
+        ${item.num?`<span class="no-item-num">${item.num}</span>`:''}
+        <span class="no-item-name">${item.name}</span>
+        <span class="no-item-price">${displayPrice} €</span>
+        <button class="no-item-add">+</button>
+      </div>`;
+    });
+  });
+  document.getElementById('noItemsList').innerHTML = html || '<div style="color:var(--muted);font-size:.82rem;padding:10px 0;">Nichts gefunden</div>';
+}
+
+function openNoItemPopupEl(el){
+  const catName = el.getAttribute('data-cat');
+  const name = el.getAttribute('data-name');
+  // Find item by name + cat
+  const cat = NO_MENU.find(c=>c.cat===catName);
+  if(!cat) return;
+  const item = cat.items.find(i=>i.name===name);
+  if(!item) return;
+  openNoItemPopup(item, catName);
+}
+
+function noRenderOptions(config){
+  if(!config||config.length===0) return '';
+  let html='';
+  config.forEach((group,gi)=>{
+    const isConditional = group.conditionalGroup === true;
+    html+=`<div class="nip-opt-group" data-gi="${gi}" data-type="${group.type||'radio'}" data-maxfree="${group.maxFree||0}" ${isConditional?'id="noCondGroup_'+gi+'" style="display:none"':''}>
+      <div class="nip-opt-title">${group.title}${group.required?'<span style="color:var(--gold)"> *</span>':''}</div>`;
+    if(group.note) html+=`<div style="font-size:.72rem;color:var(--muted);margin-bottom:6px;">${group.note}</div>`;
+    else if(group.type==='checkbox') html+=`<div style="font-size:.72rem;color:var(--muted);margin-bottom:6px;">Mehrfachauswahl möglich</div>`;
+    const isMaxFreeGroup = (group.maxFree||0) > 0;
+    group.options.forEach((opt,oi)=>{
+      const inputType = group.type==='radio'?'radio':'checkbox';
+      const name = `no_grp_${gi}`;
+      const extraStr = isMaxFreeGroup
+        ? ` <span class="nip-choice-extra" id="no-opt-price-${gi}-${oi}" style="display:none">+${opt.extra.toFixed(2).replace('.',',')} €</span>`
+        : (opt.extra&&!opt.basePrice ? ` <span class="nip-choice-extra">+${opt.extra.toFixed(2).replace('.',',')} €</span>`
+           : opt.basePrice ? ` <span class="nip-choice-extra">${opt.basePrice.toFixed(2).replace('.',',')} €</span>` : '');
+      html+=`<label class="nip-choice" onclick="noSelectOptLabel(this)">
+        <input type="${inputType}" name="${name}" value="${oi}" data-extra="${opt.extra||0}" data-baseprice="${opt.basePrice||0}" data-gi="${gi}" onchange="noCalcTotal()">
+        <span class="nip-choice-label">${opt.label}</span>${extraStr}
+      </label>`;
+    });
+    if(group.required) html+=`<div style="color:var(--gold);font-size:.75rem;margin-top:4px;display:none;" id="no_err_${gi}">Bitte eine Option wählen</div>`;
+    html+='</div>';
+  });
+  return html;
+}
+
+function openNoItemPopup(item, catName){
+  noCurrentItem = item;
+  noCurrentQty = 1;
+  noExtraPrice = 0;
+  noMaxFreeClickOrder = [];
+
+  const isPizza = catName === '🍕 Pizza' || (catName === '⭐ Spezial' && item.price2);
+
+  let config = (NO_POPUP_CONFIG[item.name] || []).slice();
+
+  // Pizza: Größengruppe vorne einfügen (genau wie Kundenseite)
+  if(isPizza){
+    const p1 = item.price, p2 = item.price2 || item.price;
+    const sizeGroup = {type:'radio',title:'Größe wählen',required:true,isPizzaSize:true,options:[
+      {label:'Klein – Ø 26 cm', extra:0, basePrice:p1},
+      {label:'Groß – Ø 30 cm',  extra:0, basePrice:p2}
+    ]};
+    config = [sizeGroup, ...config];
+  }
+
+  // Items with no config → add directly
+  if(config.length === 0){
+    confirmNoItemAdd();
+    return;
+  }
+
+  // Build popup
+  const popup = document.getElementById('noItemPopup');
+  document.getElementById('noItemPopupName').textContent = (item.num ? item.num+' – ' : '') + item.name;
+  document.getElementById('noItemPopupBasePrice').textContent = (isPizza ? 'ab ' : '') + item.price.toFixed(2).replace('.',',') + ' €';
+
+  let optsHtml = noRenderOptions(config);
+
+  // Note field
+  optsHtml += `<div class="nip-opt-group">
+    <div class="nip-opt-title">Anmerkung (optional)</div>
+    <input class="no-input" id="noItemNote" placeholder="z.B. extra scharf, ohne Zwiebeln..." style="margin-top:4px;">
+  </div>`;
+
+  document.getElementById('noItemPopupOpts').innerHTML = optsHtml;
+
+  // Pre-select first radio option
+  config.forEach((group, gi)=>{
+    if((group.type||'radio')==='radio' && group.required !== false){
+      const firstRadio = document.querySelector(`#noItemPopupOpts input[name="no_grp_${gi}"]`);
+      if(firstRadio){
+        firstRadio.checked = true;
+        firstRadio.closest('.nip-choice').classList.add('selected');
+      }
+    }
+  });
+
+  document.getElementById('noItemQtyNum').textContent = '1';
+  noCurrentQty = 1;
+  noCalcTotal();
+  popup.classList.add('show');
+}
+
+function noSelectOptLabel(label){
+  if(!noCurrentItem) return;
+  const input = label.querySelector('input');
+  if(input.type==='radio'){
+    const name = input.name;
+    document.querySelectorAll(`#noItemPopupOpts input[name="${name}"]`).forEach(i=>{
+      i.closest('.nip-choice').classList.remove('selected');
+    });
+  }
+  label.classList.toggle('selected', input.type==='checkbox' ? input.checked : true);
+
+  const gi = parseInt(input.name.replace('no_grp_',''));
+  const isPizza = document.querySelector(`#noItemPopupOpts [data-gi="${gi}"]`)?.dataset.type;
+  const config = (() => {
+    let c = (NO_POPUP_CONFIG[noCurrentItem.name]||[]).slice();
+    const catName = NO_MENU.find(cat=>cat.items.includes(noCurrentItem))?.cat||'';
+    const isPizzaCat = catName==='🍕 Pizza' || (catName==='⭐ Spezial'&&noCurrentItem.price2);
+    if(isPizzaCat){ const p1=noCurrentItem.price,p2=noCurrentItem.price2||noCurrentItem.price; c=[{type:'radio',title:'Größe wählen',required:true,isPizzaSize:true,options:[{label:'Klein – Ø 26 cm',extra:0,basePrice:p1},{label:'Groß – Ø 30 cm',extra:0,basePrice:p2}]},...c]; }
+    return c;
+  })();
+
+  // maxFree click tracking
+  if(gi>=0 && config[gi] && config[gi].maxFree>0 && input.type==='checkbox'){
+    const oi = parseInt(input.value);
+    if(input.checked){ noMaxFreeClickOrder.push({gi,oi}); }
+    else { const pos=noMaxFreeClickOrder.findIndex(x=>x.gi===gi&&x.oi===oi); if(pos!==-1) noMaxFreeClickOrder.splice(pos,1); }
+  }
+
+  // Conditional group visibility
+  if(config && config[gi] && config[gi].triggerGroup !== undefined){
+    const targetGi = config[gi].triggerGroup;
+    const selectedOpt = config[gi].options[parseInt(input.value)];
+    const condEl = document.getElementById('noCondGroup_'+targetGi);
+    if(condEl){
+      const show = selectedOpt && selectedOpt.hideGroup === false;
+      condEl.style.display = show ? '' : 'none';
+      if(!show){ condEl.querySelectorAll('input').forEach(i=>{ i.checked=false; i.closest('.nip-choice').classList.remove('selected'); }); }
+    }
+  }
+
+  noCalcTotal();
+}
+
+function noCalcTotal(){
+  if(!noCurrentItem) return;
+  let extra = 0;
+  let basePrice = noCurrentItem.price;
+
+  const catName = NO_MENU.find(cat=>cat.items.includes(noCurrentItem))?.cat||'';
+  const isPizzaCat = catName==='🍕 Pizza' || (catName==='⭐ Spezial'&&noCurrentItem.price2);
+  const config = (() => {
+    let c = (NO_POPUP_CONFIG[noCurrentItem.name]||[]).slice();
+    if(isPizzaCat){ const p1=noCurrentItem.price,p2=noCurrentItem.price2||noCurrentItem.price; c=[{type:'radio',title:'Größe wählen',required:true,isPizzaSize:true,options:[{label:'Klein – Ø 26 cm',extra:0,basePrice:p1},{label:'Groß – Ø 30 cm',extra:0,basePrice:p2}]},...c]; }
+    return c;
+  })();
+
+  const byGi = {};
+  document.querySelectorAll('#noItemPopupOpts input:checked').forEach(i=>{
+    const bp = parseFloat(i.dataset.baseprice||0);
+    if(bp>0){ basePrice=bp; return; }
+    const gi = i.dataset.gi||'_';
+    if(!byGi[gi]) byGi[gi]=[];
+    byGi[gi].push(parseFloat(i.dataset.extra||0));
+  });
+
+  // Update maxFree price labels
+  config.forEach((grp,gi)=>{
+    if(!(grp.maxFree>0)) return;
+    const orderForGi = noMaxFreeClickOrder.filter(x=>x.gi===gi);
+    grp.options.forEach((opt,oi)=>{
+      const priceEl = document.getElementById(`no-opt-price-${gi}-${oi}`);
+      if(!priceEl) return;
+      const inp = document.querySelector(`#noItemPopupOpts input[name="no_grp_${gi}"][value="${oi}"]`);
+      const isChecked = inp && inp.checked;
+      if(!isChecked){ priceEl.style.display='none'; return; }
+      const clickPos = orderForGi.findIndex(x=>x.oi===oi);
+      const isPaid = clickPos >= grp.maxFree;
+      priceEl.style.display = isPaid ? '' : 'none';
+    });
+  });
+
+  // maxFree extras
+  config.forEach((grp,gi)=>{
+    if(!(grp.maxFree>0)) return;
+    const orderForGi = noMaxFreeClickOrder.filter(x=>x.gi===gi);
+    orderForGi.forEach((item, clickIdx)=>{
+      if(clickIdx < grp.maxFree) return;
+      const opt = grp.options[item.oi];
+      extra += parseFloat(opt.extra||0);
+    });
+    delete byGi[String(gi)];
+  });
+
+  Object.keys(byGi).forEach(gi=>{
+    byGi[gi].forEach(e=>{ extra += e; });
+  });
+
+  noExtraPrice = (basePrice - noCurrentItem.price) + extra;
+  const unitPrice = basePrice + extra;
+  const total = unitPrice * noCurrentQty;
+  document.getElementById('nipTotalBtn').textContent = 'Hinzufügen  ' + total.toFixed(2).replace('.',',') + ' €';
+  document.getElementById('nipUnitPrice').textContent = unitPrice.toFixed(2).replace('.',',') + ' €';
+}
+
+function changeNipQty(delta){
+  noCurrentQty = Math.max(1, noCurrentQty + delta);
+  document.getElementById('noItemQtyNum').textContent = noCurrentQty;
+  noCalcTotal();
+}
+
+function closeNoItemPopup(){
+  document.getElementById('noItemPopup').classList.remove('show');
+  noCurrentItem = null;
+}
+
+function confirmNoItemAdd(){
+  const item = noCurrentItem;
+  if(!item) return;
+
+  // Validate required groups
+  const catName = NO_MENU.find(cat=>cat.items.includes(item))?.cat||'';
+  const isPizzaCat = catName==='🍕 Pizza' || (catName==='⭐ Spezial'&&item.price2);
+  let config = (NO_POPUP_CONFIG[item.name]||[]).slice();
+  if(isPizzaCat){ const p1=item.price,p2=item.price2||item.price; config=[{type:'radio',title:'Größe wählen',required:true,options:[{label:'Klein – Ø 26 cm',extra:0,basePrice:p1},{label:'Groß – Ø 30 cm',extra:0,basePrice:p2}]},...config]; }
+
+  let valid = true;
+  config.forEach((group,gi)=>{
+    if(group.required){
+      const checked = document.querySelector(`#noItemPopupOpts input[name="no_grp_${gi}"]:checked`);
+      const errEl = document.getElementById('no_err_'+gi);
+      if(!checked){ valid=false; if(errEl) errEl.style.display='block'; }
+      else { if(errEl) errEl.style.display='none'; }
+    }
+  });
+  if(!valid) return;
+
+  // Collect selections
+  const selections = [];
+  config.forEach((group,gi)=>{
+    const checked = [...document.querySelectorAll(`#noItemPopupOpts input[name="no_grp_${gi}"]:checked`)];
+    checked.forEach(i=>{ selections.push(group.options[parseInt(i.value)].label); });
+  });
+
+  const finalPrice = item.price + noExtraPrice;
+  const noteEl = document.getElementById('noItemNote');
+  const note = noteEl ? noteEl.value.trim() : '';
+  const optLabels = selections.join(', ');
+  const fullNote = [optLabels, note].filter(Boolean).join(' · ');
+
+  const key = item.name + '|' + fullNote;
+  const existing = noCart.find(i=>i._key===key);
+  if(existing){ existing.qty += noCurrentQty; }
+  else {
+    noCart.push({
+      _key: key,
+      name: item.name + (optLabels ? ' ('+optLabels+')' : ''),
+      price: finalPrice,
+      qty: noCurrentQty,
+      num: item.num,
+      note: note
+    });
+  }
+
+  closeNoItemPopup();
+  renderNoCart();
+  showToast('+ ' + item.name + ' hinzugefügt');
+}
+
+function noChangeQty(idx, delta){
+  noCart[idx].qty += delta;
+  if(noCart[idx].qty <= 0) noCart.splice(idx,1);
+  renderNoCart();
+}
+
+function renderNoCart(){
+  const el = document.getElementById('noCartItems');
+  if(!noCart.length){
+    el.innerHTML='<div class="no-cart-empty">Noch keine Artikel</div>';
+    updateNoTotals();
+    return;
+  }
+  el.innerHTML = noCart.map((item,i)=>`
+    <div class="no-cart-item">
+      <div style="flex:1;">
+        <div class="no-cart-item-name">${item.name}</div>
+        ${item.note?`<div class="no-cart-item-note">${item.note}</div>`:''}
+      </div>
+      <div class="no-cart-qty">
+        <button class="no-cart-qty-btn" onclick="noChangeQty(${i},-1)">−</button>
+        <span class="no-cart-qty-num">${item.qty}</span>
+        <button class="no-cart-qty-btn" onclick="noChangeQty(${i},1)">+</button>
+      </div>
+      <div class="no-cart-price">${(item.price*item.qty).toFixed(2).replace('.',',')} €</div>
+    </div>`).join('');
+  updateNoTotals();
+}
+
+function updateNoTotals(){
+  const subtotal = noCart.reduce((s,i)=>s+i.price*i.qty,0);
+  const cityEl = document.getElementById('noCity');
+  const city = cityEl ? cityEl.value : 'Beckum';
+  const fee = noMode==='lieferung' ? (DELIVERY_FEES[city]||2.50) : 0;
+  const total = subtotal + fee;
+  document.getElementById('noSubtotal').textContent = subtotal.toFixed(2).replace('.',',') + ' €';
+  document.getElementById('noDeliveryFee').textContent = fee.toFixed(2).replace('.',',') + ' €';
+  document.getElementById('noTotal').textContent = total.toFixed(2).replace('.',',') + ' €';
+  document.getElementById('noDeliveryRow').style.display = noMode==='lieferung' ? '' : 'none';
+}
+
+function setNoMode(mode){
+  noMode = mode;
+  document.getElementById('noBtnAbholung').classList.toggle('active', mode==='abholung');
+  document.getElementById('noBtnLieferung').classList.toggle('active', mode==='lieferung');
+  document.getElementById('noDeliveryFields').style.display = mode==='lieferung' ? '' : 'none';
+  updateNoTotals();
+}
+
+async function submitNewOrder(){
+  if(!noCart.length){ showToast('Bitte Speisen hinzufügen'); return; }
+  const first = document.getElementById('noFirst').value.trim();
+  const last = document.getElementById('noLast').value.trim();
+  if(!first && !last){ showToast('Bitte Namen eingeben'); return; }
+
+  const cityEl = document.getElementById('noCity');
+  const city = cityEl ? cityEl.value : 'Beckum';
+  const fee = noMode==='lieferung' ? (DELIVERY_FEES[city]||2.50) : 0;
+  const subtotal = noCart.reduce((s,i)=>s+i.price*i.qty,0);
+  const total = subtotal + fee;
+
+  const payload = {
+    mode: noMode,
+    payment: document.getElementById('noPayment').value,
+    customer: {
+      first: first || 'Laufkunde',
+      last: last || '',
+      phone: document.getElementById('noPhone').value.trim(),
+      email: '',
+      city: noMode==='lieferung' ? city : 'Beckum',
+      street: noMode==='lieferung' ? document.getElementById('noStreet').value.trim() : '',
+      house: noMode==='lieferung' ? document.getElementById('noHouse').value.trim() : ''
+    },
+    items: noCart.map(i=>({name:i.name, price:i.price, qty:i.qty, note:i.note||''})),
+    subtotal,
+    deliveryFee: fee,
+    total,
+    note: (document.getElementById('noNote').value.trim()+' [Manuelle Bestellung]').trim(),
+    source: 'admin'
+  };
+
+  const btn = document.getElementById('noSubmitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Wird gespeichert...';
+
+  try{
+    const res = await fetch(API_BASE+'/orders', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)
+    });
+    if(res.ok){
+      showToast('Bestellung erfolgreich aufgegeben!');
+      closeNewOrder();
+      await loadOrders();
+    } else {
+      showToast('Fehler beim Speichern');
+    }
+  } catch(e){
+    showToast('Verbindungsfehler');
+  }
+  btn.disabled = false;
+  btn.textContent = 'Bestellung aufgeben';
+}
+// ──────────────────────────────────────────────────────────────────
+// ─── FORMAT ───────────────────────────────────────────────────────
+function fmt(n){return Number(n).toFixed(2).replace('.',',')+' €';}
+</script>
+</body>
+</html>
