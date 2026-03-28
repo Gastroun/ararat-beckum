@@ -412,8 +412,25 @@ app.delete('/api/admin/orders/:id', authMiddleware, async (req, res) => {
       { new: true }
     );
     if (!order) return res.status(404).json({ message: 'Bestellung nicht gefunden' });
-    await sendCancellationEmail(order, cancelReason);
-    res.json({ success: true, order });
+
+    // ── Automatische Stripe-Rückerstattung ──────────────────────────
+    let refundStatus = null;
+    if (order.payment === 'stripe' && order.paymentStatus === 'paid' && order.stripePaymentIntentId) {
+      try {
+        const refund = await stripe.refunds.create({
+          payment_intent: order.stripePaymentIntentId,
+        });
+        refundStatus = refund.status; // 'succeeded' oder 'pending'
+        await Order.findByIdAndUpdate(order._id, { paymentStatus: 'refunded' });
+        console.log(`💸 Stripe-Rückerstattung für Bestellung #${order.orderNum}: ${refund.status}`);
+      } catch (stripeErr) {
+        console.error(`❌ Stripe-Refund Fehler für #${order.orderNum}:`, stripeErr.message);
+        refundStatus = 'failed';
+      }
+    }
+
+    await sendCancellationEmail(order, cancelReason, refundStatus);
+    res.json({ success: true, order, refundStatus });
   } catch (err) {
     res.status(500).json({ message: 'Fehler beim Stornieren' });
   }
@@ -529,9 +546,30 @@ ${order.note?`Anmerkung: ${order.note}`:''}
   }
 }
 
-async function sendCancellationEmail(order, cancelReason) {
+async function sendCancellationEmail(order, cancelReason, refundStatus) {
   if (!process.env.RESEND_API_KEY || !order.customer?.email) return;
   const reasonText = cancelReason || order.cancelReason || '';
+
+  let refundHtml = '';
+  if (order.payment === 'stripe' && order.paymentStatus === 'refunded') {
+    if (refundStatus === 'succeeded') {
+      refundHtml = `<div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:14px;margin:16px 0;">
+        <strong style="color:#2e7d32;">💸 Rückerstattung erfolgreich</strong>
+        <p style="color:#555;margin:6px 0 0;font-size:13px;">Der Betrag von <strong>${(order.total||0).toFixed(2).replace('.',',')} €</strong> wird innerhalb von 5–10 Werktagen auf deine Karte zurückgebucht.</p>
+      </div>`;
+    } else if (refundStatus === 'pending') {
+      refundHtml = `<div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:14px;margin:16px 0;">
+        <strong style="color:#2e7d32;">💸 Rückerstattung wird bearbeitet</strong>
+        <p style="color:#555;margin:6px 0 0;font-size:13px;">Der Betrag von <strong>${(order.total||0).toFixed(2).replace('.',',')} €</strong> wird in Kürze zurückgebucht.</p>
+      </div>`;
+    } else {
+      refundHtml = `<div style="background:#ffebee;border:1px solid #ef9a9a;border-radius:8px;padding:14px;margin:16px 0;">
+        <strong style="color:#c62828;">⚠️ Rückerstattung fehlgeschlagen</strong>
+        <p style="color:#555;margin:6px 0 0;font-size:13px;">Bitte kontaktiere uns direkt: <strong>02521-9009414</strong></p>
+      </div>`;
+    }
+  }
+
   try {
     await resend.emails.send({
       from: process.env.EMAIL_FROM || 'bestellungen@ararat-grill.de',
@@ -549,6 +587,7 @@ async function sendCancellationEmail(order, cancelReason) {
             ${reasonText ? `<div style="background:#fff3ea;border-radius:8px;padding:14px;margin:16px 0;">
               <strong>Grund:</strong> ${reasonText}
             </div>` : ''}
+            ${refundHtml}
             <p>Bei Fragen erreichst du uns unter <strong>02521-9009414</strong>.</p>
             <p>Wir entschuldigen uns für die Unannehmlichkeiten.</p>
           </div>
