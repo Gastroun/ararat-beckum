@@ -125,12 +125,13 @@
 Nur diese 3 Zeilen in `ararat-admin.html` ändern:
 
 ```javascript
-const API_BASE = 'https://DEIN-BACKEND.onrender.com/api';
-const DASHBOARD_PASSWORD = 'Ararat2025Admin!';
-const ADMIN_API_TOKEN = 'AraratGeheimToken2025xyzABCDEFGHIJKLMNOP';
+const API_BASE           = 'https://DEIN-BACKEND.onrender.com/api';
+const DASHBOARD_PASSWORD = 'DEIN_ADMIN_PASSWORT';       // mind. 12 Zeichen
+const ADMIN_API_TOKEN    = 'DEIN_GEHEIMER_TOKEN';        // mind. 40 Zeichen, zufällig
 ```
 
 > ⚠️ `ADMIN_API_TOKEN` muss **exakt gleich** sein wie `ADMIN_TOKEN_SECRET` in Render!
+> ⚠️ Niemals echte Passwörter oder Tokens in diese Datei eintragen – diese Datei liegt auf GitHub!
 
 ---
 
@@ -140,7 +141,8 @@ const ADMIN_API_TOKEN = 'AraratGeheimToken2025xyzABCDEFGHIJKLMNOP';
 2. Checkout → Testbestellung mit Barzahlung aufgeben
 3. admin.html öffnen → Bestellung muss erscheinen
 4. Stripe Test: `pk_test_...` und `sk_test_...` Keys verwenden für Tests
-5. Bon-Druck testen (falls PrintNode konfiguriert)
+5. Test-Storno: Ablehnen mit Grund → Storno-E-Mail prüfen (bei Stripe-Zahlung wird Betrag automatisch zurückerstattet)
+6. Bon-Druck testen (falls PrintNode konfiguriert)
 
 ---
 
