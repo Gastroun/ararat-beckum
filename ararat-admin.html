@@ -1221,7 +1221,8 @@ async function setMode(mode) {
 async function toggleAuto() {
   const newManual = !manualOverride;
   try {
-    const r = await api('/admin/status', { method: 'PATCH', body: JSON.stringify({ manualOverride: newManual }) });
+    const res = await api('/admin/status', { method: 'PATCH', body: JSON.stringify({ manualOverride: newManual }) });
+    const r = res ? await res.json() : {};
     applyModeUI(newManual ? currentMode : (r.autoMode || 'online'), newManual);
     showToast(newManual ? '🔒 Automatik deaktiviert' : '🕐 Automatik aktiviert');
   } catch(e) { showToast('❌ Fehler'); }
@@ -1229,7 +1230,9 @@ async function toggleAuto() {
 
 async function loadRestaurantStatus() {
   try {
-    const d = await api('/admin/status');
+    const res = await api('/admin/status');
+    if(!res) return;
+    const d = await res.json();
     applyModeUI(d.manualOverride ? d.mode : (d.autoMode || 'online'), d.manualOverride || false);
   } catch(e) {}
 }
