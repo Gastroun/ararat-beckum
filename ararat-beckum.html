@@ -3275,33 +3275,68 @@ function closeLegalDirect(){
 
 
 <script>
-// ─── VERFÜGBARKEIT (Ausverkauft) ──────────────────────────────────
+// ─── STATUS & VERFÜGBARKEIT (Ausverkauft / Geschlossen) ───────────
 let disabledItems = new Set();
-let _availRetry = 0;
-let _availRetryTimer = null;
+let _syncRetry = 0;
+let _syncRetryTimer = null;
 
-async function loadAvailability(){
-  try{
-    const res = await fetch(API_BASE + '/availability');
-    if(!res.ok) throw new Error('HTTP ' + res.status);
-    const data = await res.json();
-    disabledItems = new Set(data.disabled || []);
-    // Im localStorage cachen für nächsten Seitenaufruf
-    try{ localStorage.setItem('ararat_disabled', JSON.stringify([...disabledItems])); } catch(e){}
-    applyAvailability();
-    _availRetry = 0;
-    console.log('[Ararat] Verfügbarkeit geladen:', [...disabledItems]);
-  } catch(e){
-    console.warn('[Ararat] Availability check failed:', e);
-    // Retry: alle 10 Sekunden, max. 10x (Backend-Kaltstart abdecken)
-    if(_availRetry < 10){
-      _availRetry++;
-      clearTimeout(_availRetryTimer);
-      _availRetryTimer = setTimeout(loadAvailability, 10000);
-    }
-  }
+/* ── 1. Geschlossen-Banner ────────────────────────────────────── */
+function showClosedBanner(mode){
+  let b = document.getElementById('ararat-closed-banner');
+  if(b) b.remove();
+  b = document.createElement('div');
+  b.id = 'ararat-closed-banner';
+  b.style.cssText = [
+    'position:fixed','top:0','left:0','width:100%','z-index:999999',
+    'color:#fff','text-align:center','padding:14px 20px',
+    'font-size:15px','font-weight:700','letter-spacing:.3px',
+    'box-shadow:0 3px 12px rgba(0,0,0,.35)',
+    'display:flex','align-items:center','justify-content:center','gap:10px',
+    mode === 'neutral' ? 'background:#4a4a00;' : 'background:#8b1d1d;'
+  ].join(';');
+  b.innerHTML = mode === 'neutral'
+    ? '🚧 &nbsp;Wir arbeiten gerade an unserem Online-Bestellsystem – schau bald wieder vorbei!'
+    : '🔴 &nbsp;Das Restaurant ist aktuell <u>geschlossen</u> – Bestellungen sind nicht möglich.';
+  document.body.prepend(b);
+  document.body.style.paddingTop = '52px';
 }
 
+function hideClosedBanner(){
+  const b = document.getElementById('ararat-closed-banner');
+  if(b) b.remove();
+  document.body.style.paddingTop = '';
+}
+
+/* ── 2. Alle Bestellfunktionen blockieren ─────────────────────── */
+function blockPopups(mode){
+  // openPopup ist die einzige Einstiegsfunktion bei Ararat
+  window.openPopup = function(){ showBlockedToast(mode); };
+  // Checkout-Button deaktivieren
+  const cb = document.getElementById('checkout-btn') || document.querySelector('.checkout-btn');
+  if(cb){ cb.style.pointerEvents='none'; cb.style.opacity='.45'; }
+}
+
+function showBlockedToast(mode){
+  const msg = mode === 'neutral'
+    ? '🚧 Online-Bestellung aktuell nicht verfügbar – wir arbeiten daran!'
+    : '🔴 Bestellung nicht möglich – Restaurant ist geschlossen.';
+  let t = document.getElementById('ararat-closed-toast');
+  if(t){ clearTimeout(t._timer); t.remove(); }
+  t = document.createElement('div');
+  t.id = 'ararat-closed-toast';
+  t.style.cssText = [
+    'position:fixed','bottom:80px','left:50%','transform:translateX(-50%)',
+    mode === 'neutral' ? 'background:#4a4a00;' : 'background:#8b1d1d;',
+    'color:#fff','padding:12px 22px','border-radius:10px',
+    'font-size:14px','font-weight:600','z-index:9999999',
+    'box-shadow:0 4px 18px rgba(0,0,0,.4)','text-align:center','max-width:90vw'
+  ].join(';');
+  t.textContent = msg;
+  document.body.appendChild(t);
+  t._timer = setTimeout(function(){ t.remove(); }, 3200);
+}
+
+/* ── 3. Ausverkaufte Artikel markieren ────────────────────────── */
 function applyAvailability(){
   document.querySelectorAll('.item-card').forEach(card => {
     const nameEl = card.querySelector('.item-name');
@@ -3322,7 +3357,6 @@ function applyAvailability(){
         footer.insertAdjacentHTML('beforeend', '<span class="sold-out-badge">Ausverkauft</span>');
       }
     } else {
-      // Wieder verfügbar – Markierung entfernen
       if(!card.classList.contains('sold-out')) return;
       card.classList.remove('sold-out');
       card.style.cursor = '';
@@ -3348,16 +3382,60 @@ function showSoldOutToast(name){
   t._timer = setTimeout(function(){ t.remove(); }, 2800);
 }
 
-document.addEventListener('DOMContentLoaded', function(){
+/* ── 4. Status + Availability vom Backend laden ───────────────── */
+async function syncWithBackend(){
+  // Restaurant-Status prüfen
+  try{
+    const statusRes = await fetch(API_BASE + '/status');
+    const statusData = await statusRes.json();
+    const mode = statusData.mode || (statusData.isOpen ? 'online' : 'geschlossen');
+    if(mode === 'geschlossen'){
+      showClosedBanner('geschlossen');
+      blockPopups('geschlossen');
+    } else if(mode === 'neutral'){
+      showClosedBanner('neutral');
+      blockPopups('neutral');
+    } else {
+      hideClosedBanner();
+    }
+  } catch(e){
+    console.warn('[Ararat] Status-Check fehlgeschlagen:', e);
+  }
+
+  // Verfügbarkeit (Ausverkauft) laden
+  try{
+    const availRes = await fetch(API_BASE + '/availability');
+    if(!availRes.ok) throw new Error('HTTP ' + availRes.status);
+    const availData = await availRes.json();
+    disabledItems = new Set(availData.disabled || []);
+    try{ localStorage.setItem('ararat_disabled', JSON.stringify([...disabledItems])); } catch(e){}
+    applyAvailability();
+    _syncRetry = 0;
+    console.log('[Ararat] Verfügbarkeit geladen:', [...disabledItems]);
+  } catch(e){
+    console.warn('[Ararat] Availability-Check fehlgeschlagen:', e);
+    if(_syncRetry < 10){
+      _syncRetry++;
+      clearTimeout(_syncRetryTimer);
+      _syncRetryTimer = setTimeout(syncWithBackend, 10000);
+    }
+  }
+}
+
+function startSync(){
   // Gecachte Verfügbarkeit sofort anwenden
   try{
     const cached = localStorage.getItem('ararat_disabled');
     if(cached){ disabledItems = new Set(JSON.parse(cached)); applyAvailability(); }
   } catch(e){}
   // Dann frisch vom Backend laden
-  loadAvailability();
+  syncWithBackend();
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+  startSync();
   // Alle 30 Sekunden aktualisieren
-  setInterval(loadAvailability, 30000);
+  setInterval(syncWithBackend, 30000);
   // Inject allergen badges into every item card
   Object.keys(MENU).forEach(cat=>{
     MENU[cat].forEach((item, idx)=>{
