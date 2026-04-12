@@ -10,7 +10,7 @@ const PORT = process.env.PORT || 3001;
 
 // ─── STRIPE & RESEND ────────────────────────────────────────────
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 // ─── CORS ────────────────────────────────────────────────────────
 app.use(cors({
@@ -91,6 +91,14 @@ function authMiddleware(req, res, next) {
   next();
 }
 
+// ─── RESTAURANT STATUS SCHEMA ────────────────────────────────────
+const statusSchema = new mongoose.Schema({
+  _id: { type: String, default: 'main' },
+  mode: { type: String, enum: ['online','neutral','geschlossen'], default: 'online' },
+  manualOverride: { type: Boolean, default: false }
+});
+const RestaurantStatus = mongoose.model('RestaurantStatus', statusSchema);
+
 // ─── AVAILABILITY SCHEMA ─────────────────────────────────────────
 const availabilitySchema = new mongoose.Schema({
   itemName: { type: String, required: true, unique: true },
@@ -112,6 +120,16 @@ app.get('/api/config', (req, res) => {
   res.json({
     whatsapp: process.env.WHATSAPP_NUMBER || ''
   });
+});
+
+// ── Restaurant-Status abrufen (PUBLIC) ───────────────────────────
+app.get('/api/status', async (req, res) => {
+  try {
+    const s = await RestaurantStatus.findById('main');
+    res.json({ mode: s ? s.mode : 'online', manualOverride: s ? s.manualOverride : false });
+  } catch (err) {
+    res.json({ mode: 'online', manualOverride: false });
+  }
 });
 
 // ── Verfügbarkeit abrufen (PUBLIC) ────────────────────────────────
@@ -262,6 +280,29 @@ app.post('/api/stripe-webhook', async (req, res) => {
 // ═══════════════════════════════════════════════════════════════════
 // ADMIN ROUTES (alle durch Auth geschützt)
 // ═══════════════════════════════════════════════════════════════════
+
+// ── Restaurant-Status setzen (Admin) ─────────────────────────────
+app.get('/api/admin/status', authMiddleware, async (req, res) => {
+  try {
+    const s = await RestaurantStatus.findById('main');
+    res.json({ mode: s ? s.mode : 'online', manualOverride: s ? s.manualOverride : false });
+  } catch (err) {
+    res.status(500).json({ message: 'Fehler' });
+  }
+});
+
+app.patch('/api/admin/status', authMiddleware, async (req, res) => {
+  try {
+    const { mode, manualOverride } = req.body;
+    const update = {};
+    if (mode !== undefined) update.mode = mode;
+    if (manualOverride !== undefined) update.manualOverride = manualOverride;
+    const s = await RestaurantStatus.findByIdAndUpdate('main', update, { upsert: true, new: true });
+    res.json({ mode: s.mode, manualOverride: s.manualOverride });
+  } catch (err) {
+    res.status(500).json({ message: 'Fehler' });
+  }
+});
 
 // ── Admin Login ────────────────────────────────────────────────────
 app.post('/api/admin/login', (req, res) => {
@@ -453,7 +494,7 @@ app.post('/api/admin/orders/:id/print', authMiddleware, async (req, res) => {
 // ═══════════════════════════════════════════════════════════════════
 
 async function sendConfirmationEmail(order, estimatedMinutes) {
-  if (!process.env.RESEND_API_KEY || !order.customer?.email) return;
+  if (!resend || !order.customer?.email) return;
   try {
     const mins = estimatedMinutes || order.prepTime || (order.mode === 'lieferung' ? 45 : 20);
     const modeText = order.mode === 'lieferung' ? '🛵 Lieferung' : '🏃 Abholung';
@@ -547,7 +588,7 @@ ${order.note?`Anmerkung: ${order.note}`:''}
 }
 
 async function sendCancellationEmail(order, cancelReason, refundStatus) {
-  if (!process.env.RESEND_API_KEY || !order.customer?.email) return;
+  if (!resend || !order.customer?.email) return;
   const reasonText = cancelReason || order.cancelReason || '';
 
   let refundHtml = '';
