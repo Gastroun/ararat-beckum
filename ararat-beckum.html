@@ -3277,46 +3277,87 @@ function closeLegalDirect(){
 <script>
 // ─── VERFÜGBARKEIT (Ausverkauft) ──────────────────────────────────
 let disabledItems = new Set();
+let _availRetry = 0;
+let _availRetryTimer = null;
 
 async function loadAvailability(){
   try{
     const res = await fetch(API_BASE + '/availability');
-    if(!res.ok) return;
+    if(!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
     disabledItems = new Set(data.disabled || []);
+    // Im localStorage cachen für nächsten Seitenaufruf
+    try{ localStorage.setItem('ararat_disabled', JSON.stringify([...disabledItems])); } catch(e){}
     applyAvailability();
-  } catch(e){ console.warn('Availability check failed', e); }
+    _availRetry = 0;
+    console.log('[Ararat] Verfügbarkeit geladen:', [...disabledItems]);
+  } catch(e){
+    console.warn('[Ararat] Availability check failed:', e);
+    // Retry: alle 10 Sekunden, max. 10x (Backend-Kaltstart abdecken)
+    if(_availRetry < 10){
+      _availRetry++;
+      clearTimeout(_availRetryTimer);
+      _availRetryTimer = setTimeout(loadAvailability, 10000);
+    }
+  }
 }
 
 function applyAvailability(){
-  if(disabledItems.size === 0) return;
-  // Alle Item-Cards durchgehen und deaktivierte sperren
   document.querySelectorAll('.item-card').forEach(card => {
     const nameEl = card.querySelector('.item-name');
     if(!nameEl) return;
     const name = nameEl.textContent.trim();
-    if(disabledItems.has(name)){
-      // Noch nicht gesperrt → sperren
-      if(!card.classList.contains('sold-out')){
-        card.classList.add('sold-out');
-        card.style.cursor = 'default';
-        card.onclick = null;
-        // + Button deaktivieren
-        const btn = card.querySelector('.add-btn');
-        if(btn){ btn.disabled = true; btn.onclick = null; btn.style.cursor='not-allowed'; }
-        // Badge einfügen
-        const footer = card.querySelector('.item-footer');
-        if(footer && !footer.querySelector('.sold-out-badge')){
-          footer.insertAdjacentHTML('beforeend', '<span class="sold-out-badge">Ausverkauft</span>');
-        }
+    const isDisabled = disabledItems.has(name);
+
+    if(isDisabled){
+      if(card.classList.contains('sold-out')) return;
+      card.classList.add('sold-out');
+      card.style.cursor = 'default';
+      card.dataset.origOnclick = card.getAttribute('onclick') || '';
+      card.onclick = function(e){ e.stopImmediatePropagation(); showSoldOutToast(name); };
+      const btn = card.querySelector('.add-btn');
+      if(btn){ btn.disabled = true; btn.onclick = null; btn.style.cursor='not-allowed'; }
+      const footer = card.querySelector('.item-footer');
+      if(footer && !footer.querySelector('.sold-out-badge')){
+        footer.insertAdjacentHTML('beforeend', '<span class="sold-out-badge">Ausverkauft</span>');
       }
+    } else {
+      // Wieder verfügbar – Markierung entfernen
+      if(!card.classList.contains('sold-out')) return;
+      card.classList.remove('sold-out');
+      card.style.cursor = '';
+      card.onclick = null;
+      if(card.dataset.origOnclick) card.setAttribute('onclick', card.dataset.origOnclick);
+      delete card.dataset.origOnclick;
+      const btn = card.querySelector('.add-btn');
+      if(btn){ btn.disabled = false; btn.style.cursor=''; }
+      const badge = card.querySelector('.sold-out-badge');
+      if(badge) badge.remove();
     }
   });
 }
 
+function showSoldOutToast(name){
+  let t = document.getElementById('ararat-so-toast');
+  if(t){ clearTimeout(t._timer); t.remove(); }
+  t = document.createElement('div');
+  t.id = 'ararat-so-toast';
+  t.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:12px 22px;border-radius:10px;font-size:14px;font-weight:600;z-index:9999999;box-shadow:0 4px 18px rgba(0,0,0,.35);text-align:center';
+  t.textContent = '❌ „' + name + '" ist leider ausverkauft.';
+  document.body.appendChild(t);
+  t._timer = setTimeout(function(){ t.remove(); }, 2800);
+}
+
 document.addEventListener('DOMContentLoaded', function(){
-  // Verfügbarkeit vom Backend laden
+  // Gecachte Verfügbarkeit sofort anwenden
+  try{
+    const cached = localStorage.getItem('ararat_disabled');
+    if(cached){ disabledItems = new Set(JSON.parse(cached)); applyAvailability(); }
+  } catch(e){}
+  // Dann frisch vom Backend laden
   loadAvailability();
+  // Alle 30 Sekunden aktualisieren
+  setInterval(loadAvailability, 30000);
   // Inject allergen badges into every item card
   Object.keys(MENU).forEach(cat=>{
     MENU[cat].forEach((item, idx)=>{

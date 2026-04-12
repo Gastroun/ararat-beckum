@@ -690,8 +690,14 @@ html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);colo
 <script>
 // ─── CONFIG ───────────────────────────────────────────────────────
 const API_BASE = 'https://ararat-beckum-backend.onrender.com/api';
-const DASHBOARD_PASSWORD = 'Ararat2025Admin';
-const ADMIN_API_TOKEN = 'AraratGeheimToken2025xyz';
+const DASHBOARD_PASSWORD = 'Ararat2025Admin!';
+const ADMIN_API_TOKEN = 'AraratGeheimToken2025xyzABCDEFGHIJKLMNOP';
+
+// Ungültige Session-Tokens löschen
+(function(){
+  const saved = sessionStorage.getItem('araratAdminToken');
+  if(saved && saved !== ADMIN_API_TOKEN) sessionStorage.removeItem('araratAdminToken');
+})();
 
 // ─── STATE ────────────────────────────────────────────────────────
 let token = sessionStorage.getItem('araratAdminToken') || '';
