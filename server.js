@@ -653,6 +653,10 @@ async function triggerPrint(order) {
   }
 }
 
+// ─── STATIC + ROOT ───────────────────────────────────────────────
+app.use(express.static('.'));
+app.get('/', (req, res) => res.sendFile(__dirname + '/ararat-beckum.html'));
+
 // ─── START ────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`🚀 Ararat Grill Backend läuft auf Port ${PORT}`);
