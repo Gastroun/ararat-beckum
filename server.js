@@ -224,12 +224,12 @@ app.post('/api/create-stripe-checkout', async (req, res) => {
       cancel_url: `${process.env.FRONTEND_URL}?payment=cancelled`,
     });
 
-    // Pending order in DB
+    // Pending order in DB – status 'awaiting_payment' bis Zahlung bestätigt
     const order = new Order({
       ...rest, items, subtotal, deliveryFee, serviceFee, total,
       customer, mode, note, orderNum,
       payment: 'stripe', paymentStatus: 'pending',
-      stripeSessionId: session.id, status: 'pending'
+      stripeSessionId: session.id, status: 'awaiting_payment'
     });
     await order.save();
 
