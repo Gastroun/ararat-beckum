@@ -2002,7 +2002,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);}
         </div>
         <div class="co-field">
           <label class="co-label">Telefon</label>
-          <input class="co-input" id="coPhone" placeholder="0152 123 456 78" type="tel">
+          <input class="co-input" id="coPhone" placeholder="Telefonnummer * (0152 123 456 78)" type="tel">
         </div>
         <!-- Delivery address (only shown for Lieferung) -->
         <div id="addressFields">
@@ -2869,18 +2869,20 @@ async function submitOrder(){
   // Validate fields
   const first=document.getElementById('coFirst').value.trim();
   const last=document.getElementById('coLast').value.trim();
+  const phone=document.getElementById('coPhone').value.trim();
   const email=document.getElementById('coEmail').value.trim();
   const city=coMode==='lieferung'?document.getElementById('coCity').value:'';
   const street=coMode==='lieferung'?document.getElementById('coStreet').value.trim():'';
   const house=coMode==='lieferung'?document.getElementById('coHouse').value.trim():'';
 
-  ['coFirst','coLast','coEmail','coCity','coStreet','coHouse'].forEach(id=>{
+  ['coFirst','coLast','coPhone','coEmail','coCity','coStreet','coHouse'].forEach(id=>{
     const el=document.getElementById(id);if(el)el.classList.remove('error');
   });
 
   let errs=[];
   if(!first){errs.push('Vorname');document.getElementById('coFirst').classList.add('error');}
   if(!last){errs.push('Nachname');document.getElementById('coLast').classList.add('error');}
+  if(!phone){errs.push('Telefonnummer');document.getElementById('coPhone').classList.add('error');}
   if(!email||!email.includes('@')){errs.push('E-Mail');document.getElementById('coEmail').classList.add('error');}
   if(coMode==='lieferung'){
     if(!city){errs.push('Stadt');document.getElementById('coCity').classList.add('error');}
@@ -3399,6 +3401,8 @@ async function syncWithBackend(){
       hideClosedBanner();
     }
   } catch(e){
+    showClosedBanner('geschlossen');
+    blockPopups('geschlossen');
     console.warn('[Ararat] Status-Check fehlgeschlagen:', e);
   }
 
