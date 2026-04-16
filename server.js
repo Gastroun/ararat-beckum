@@ -24,11 +24,23 @@ function getResend() {
 }
 
 // ─── CORS ────────────────────────────────────────────────────────
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  'https://ararat-grill-beckum.de',
+  'https://www.ararat-grill-beckum.de',
+].filter(Boolean);
 app.use(cors({
-  origin: process.env.FRONTEND_URL || '*',
+  origin: function(origin, callback) {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, origin);
+    console.warn('CORS blockiert:', origin);
+    return callback(new Error('CORS nicht erlaubt für: ' + origin));
+  },
   methods: ['GET','POST','PATCH','DELETE','OPTIONS'],
-  allowedHeaders: ['Content-Type','Authorization']
+  allowedHeaders: ['Content-Type','Authorization'],
+  credentials: true
 }));
+app.options('*', cors());
 
 // ─── RAW BODY for Stripe Webhook (must be before express.json) ──
 app.use('/api/stripe-webhook', express.raw({ type: 'application/json' }));
@@ -49,6 +61,7 @@ const orderSchema = new mongoose.Schema({
     enum: ['awaiting_payment','pending','confirmed','preparing','ready','delivered','cancelled'] },
   payment: { type: String, enum: ['bar','stripe','karte'], required: true },
   paymentStatus: { type: String, default: 'unpaid', enum: ['unpaid','paid','pending','refunded'] },
+  source:               { type: String, default: 'web', enum: ['web','pos','admin'] },
   stripeSessionId: String,
   stripePaymentIntentId: String,
   customer: {
@@ -66,15 +79,6 @@ const orderSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 const Order = mongoose.model('Order', orderSchema);
-
-// Auto-increment orderNum
-orderSchema.pre('save', async function(next) {
-  if (this.isNew) {
-    const last = await Order.findOne().sort({ orderNum: -1 });
-    this.orderNum = last ? last.orderNum + 1 : 1001;
-  }
-  next();
-});
 
 // ─── COUNTER für orderNum ─────────────────────────────────────────
 const counterSchema = new mongoose.Schema({ _id: String, seq: Number });
@@ -160,21 +164,19 @@ app.post('/api/orders', async (req, res) => {
   try {
     const orderNum = await getNextOrderNum();
     // Manuelle Admin-Bestellungen (source:'admin') direkt confirmen
-    const isAdmin = req.body.source === 'admin';
+    const isPOS = req.body.source === 'pos' || req.body.source === 'admin';
     const order = new Order({
       ...req.body,
       orderNum,
-      status: isAdmin ? 'confirmed' : 'pending'
+      status: isPOS ? 'confirmed' : 'pending'
     });
     await order.save();
 
-    if (isAdmin) {
-      // Sofort E-Mail + Druck für manuelle Bestellungen
-      await sendConfirmationEmail(order);
+    if (isPOS) {
+      await sendConfirmationEmail(order, order.prepTime || 20);
       await sendRestaurantEmail(order);
       await triggerPrint(order);
     }
-    // Für normale Kundenbestellungen: nichts – Admin muss erst bestätigen
 
     res.status(201).json({ orderNum: order.orderNum, order });
   } catch (err) {
@@ -223,17 +225,26 @@ app.post('/api/create-stripe-checkout', async (req, res) => {
       });
     }
 
-    // Stripe Session
-    const session = await getStripe().checkout.sessions.create({
+    // Stripe Connect: Provision berechnen
+    const appFee = Math.round(((serviceFee||0) + (subtotal * 0.05)) * 100);
+
+    const sessionOpts = {
       payment_method_types: ['card'],
       line_items: lineItems,
       mode: 'payment',
-      customer_email: customer.email,
+      ...(customer.email ? { customer_email: customer.email } : {}),
       locale: 'de',
       metadata: { orderNum: String(orderNum) },
-      success_url: `${process.env.FRONTEND_URL}/bestellung-erfolgreich?session_id={CHECKOUT_SESSION_ID}&order=${orderNum}`,
-      cancel_url: `${process.env.FRONTEND_URL}?payment=cancelled`,
-    });
+      success_url: `${process.env.FRONTEND_URL || 'https://ararat-grill-beckum.de'}?order=${orderNum}&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url:  `${process.env.FRONTEND_URL || 'https://ararat-grill-beckum.de'}?payment=cancelled`,
+    };
+    if (process.env.STRIPE_CONNECT_ACCOUNT) {
+      sessionOpts.payment_intent_data = {
+        application_fee_amount: appFee,
+        transfer_data: { destination: process.env.STRIPE_CONNECT_ACCOUNT }
+      };
+    }
+    const session = await getStripe().checkout.sessions.create(sessionOpts);
 
     // Pending order in DB – status 'awaiting_payment' bis Zahlung bestätigt
     const order = new Order({
@@ -388,9 +399,13 @@ app.get('/api/admin/orders', authMiddleware, async (req, res) => {
       orders,
       pending,
       stats: {
-        todayCount: todayOrders.length,
+        todayCount:   todayOrders.length,
         todayRevenue,
-        totalRevenue: orders.reduce((sum, o) => sum + (o.total || 0), 0)
+        totalRevenue: orders.reduce((s,o) => s+(o.total||0), 0),
+        active:       orders.filter(o=>['confirmed','preparing'].includes(o.status)).length,
+        done:         todayOrders.filter(o=>['ready','delivered'].includes(o.status)).length,
+        cancelled:    todayOrders.filter(o=>o.status==='cancelled').length,
+        unpaid:       orders.filter(o=>o.paymentStatus!=='paid'&&o.status!=='cancelled').length,
       }
     });
   } catch (err) {
@@ -601,7 +616,7 @@ ${order.note?`Anmerkung: ${order.note}`:''}
 }
 
 async function sendCancellationEmail(order, cancelReason, refundStatus) {
-  if (!resend || !order.customer?.email) return;
+  if (!process.env.RESEND_API_KEY || !order.customer?.email) return;
   const reasonText = cancelReason || order.cancelReason || '';
 
   let refundHtml = '';
