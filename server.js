@@ -3,14 +3,25 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const Stripe = require('stripe');
 const { Resend } = require('resend');
+const cron = require('node-cron');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// ─── STRIPE & RESEND ────────────────────────────────────────────
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+// ─── STRIPE lazy ────────────────────────────────────────────────
+function getStripe() {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) throw new Error('STRIPE_SECRET_KEY nicht gesetzt');
+  return Stripe(key);
+}
+
+// ─── RESEND lazy ─────────────────────────────────────────────────
+function getResend() {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) { console.warn('⚠️  RESEND_API_KEY fehlt'); return null; }
+  return new Resend(key);
+}
 
 // ─── CORS ────────────────────────────────────────────────────────
 app.use(cors({
@@ -35,7 +46,7 @@ const orderSchema = new mongoose.Schema({
   orderNum: { type: Number, unique: true },
   mode: { type: String, enum: ['lieferung','abholung'], required: true },
   status: { type: String, default: 'confirmed',
-    enum: ['pending','confirmed','preparing','ready','delivered','cancelled'] },
+    enum: ['awaiting_payment','pending','confirmed','preparing','ready','delivered','cancelled'] },
   payment: { type: String, enum: ['bar','stripe','karte'], required: true },
   paymentStatus: { type: String, default: 'unpaid', enum: ['unpaid','paid','pending','refunded'] },
   stripeSessionId: String,
@@ -213,7 +224,7 @@ app.post('/api/create-stripe-checkout', async (req, res) => {
     }
 
     // Stripe Session
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripe().checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: lineItems,
       mode: 'payment',
@@ -245,7 +256,7 @@ app.post('/api/stripe-webhook', async (req, res) => {
   const sig = req.headers['stripe-signature'];
   let event;
   try {
-    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+    event = getStripe().webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
   } catch (err) {
     console.error('Webhook Fehler:', err.message);
     return res.status(400).send(`Webhook Error: ${err.message}`);
@@ -297,6 +308,8 @@ app.patch('/api/admin/status', authMiddleware, async (req, res) => {
     const update = {};
     if (mode !== undefined) update.mode = mode;
     if (manualOverride !== undefined) update.manualOverride = manualOverride;
+    // Auto-Modus: sofort berechnen wenn manualOverride auf false gesetzt wird
+    if (manualOverride === false && mode === undefined) update.mode = calcAutoMode();
     const s = await RestaurantStatus.findByIdAndUpdate('main', update, { upsert: true, new: true });
     res.json({ mode: s.mode, manualOverride: s.manualOverride });
   } catch (err) {
@@ -356,7 +369,7 @@ app.get('/api/admin/orders/pending', authMiddleware, async (req, res) => {
 app.get('/api/admin/orders', authMiddleware, async (req, res) => {
   try {
     // Confirmed+ (normale Bestellliste, OHNE pending)
-    const orders = await Order.find({ status: { $nin: ['pending'] } })
+    const orders = await Order.find({ status: { $nin: ['pending','awaiting_payment'] } })
       .sort({ createdAt: -1 })
       .limit(200);
 
@@ -458,7 +471,7 @@ app.delete('/api/admin/orders/:id', authMiddleware, async (req, res) => {
     let refundStatus = null;
     if (order.payment === 'stripe' && order.paymentStatus === 'paid' && order.stripePaymentIntentId) {
       try {
-        const refund = await stripe.refunds.create({
+        const refund = await getStripe().refunds.create({
           payment_intent: order.stripePaymentIntentId,
         });
         refundStatus = refund.status; // 'succeeded' oder 'pending'
@@ -505,7 +518,7 @@ async function sendConfirmationEmail(order, estimatedMinutes) {
       .map(i => `<tr><td>${i.qty}×</td><td>${i.name}${i.note ? ' <em>('+i.note+')</em>' : ''}</td><td style="text-align:right">${(i.price*i.qty).toFixed(2).replace('.',',')} €</td></tr>`)
       .join('');
 
-    await resend.emails.send({
+    await getResend()?.emails.send({
       from: process.env.EMAIL_FROM || 'bestellungen@ararat-grill.de',
       to: order.customer.email,
       subject: `✅ Bestellung #${order.orderNum} bestätigt – Ararat Grill Beckum`,
@@ -558,7 +571,7 @@ async function sendRestaurantEmail(order) {
     const itemsList = (order.items || [])
       .map(i => `${i.qty}× ${i.name}${i.note?' ('+i.note+')':''}`)
       .join('\n');
-    await resend.emails.send({
+    await getResend()?.emails.send({
       from: process.env.EMAIL_FROM || 'bestellungen@ararat-grill.de',
       to: process.env.RESTAURANT_EMAIL,
       subject: `🔔 Neue Bestellung #${order.orderNum} – ${order.mode==='lieferung'?'Lieferung':'Abholung'}`,
@@ -612,7 +625,7 @@ async function sendCancellationEmail(order, cancelReason, refundStatus) {
   }
 
   try {
-    await resend.emails.send({
+    await getResend()?.emails.send({
       from: process.env.EMAIL_FROM || 'bestellungen@ararat-grill.de',
       to: order.customer.email,
       subject: `❌ Bestellung #${order.orderNum} storniert – Ararat Grill`,
@@ -652,6 +665,48 @@ async function triggerPrint(order) {
     console.error('PrintNode Fehler:', err);
   }
 }
+
+// ─── AUTO-STATUS (Öffnungszeiten) ────────────────────────────────
+function calcAutoMode() {
+  const deTime = new Date().toLocaleString('de-DE', { timeZone: 'Europe/Berlin' });
+  const parts  = deTime.match(/(\d+)\.(\d+)\.(\d+),\s*(\d+):(\d+)/);
+  if (!parts) return 'geschlossen';
+  const day  = parseInt(parts[1]);
+  const mon  = parseInt(parts[2]);
+  const year = parseInt(parts[3]);
+  const h    = parseInt(parts[4]);
+  const m    = parseInt(parts[5]);
+  const mins = h * 60 + m;
+  const wd   = new Date(year, mon - 1, day).getDay(); // 0=So, 1=Mo, ..., 6=Sa
+
+  // Dienstag = Ruhetag
+  if (wd === 2) return 'geschlossen';
+
+  // Samstag: 17:00–22:00
+  if (wd === 6) return (mins >= 17*60 && mins < 22*60) ? 'online' : 'geschlossen';
+
+  // Sonntag: 12:00–14:00 & 16:00–22:00
+  if (wd === 0) {
+    return (mins >= 12*60 && mins < 14*60) || (mins >= 16*60 && mins < 22*60)
+      ? 'online' : 'geschlossen';
+  }
+
+  // Mo, Mi, Do, Fr: 11:30–14:00 & 17:00–22:00
+  return (mins >= 11*60+30 && mins < 14*60) || (mins >= 17*60 && mins < 22*60)
+    ? 'online' : 'geschlossen';
+}
+
+// Cron: jede Minute Auto-Modus aktualisieren (wenn nicht manuell)
+cron.schedule('* * * * *', async () => {
+  try {
+    const s = await RestaurantStatus.findById('main');
+    if (s && s.manualOverride) return;
+    const autoMode = calcAutoMode();
+    await RestaurantStatus.findByIdAndUpdate('main',
+      { mode: autoMode }, { upsert: true, new: true }
+    );
+  } catch(e) { console.error('Auto-Status Fehler:', e); }
+});
 
 // ─── STATIC + ROOT ───────────────────────────────────────────────
 app.use(express.static('.'));
