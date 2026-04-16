@@ -26,8 +26,8 @@ function getResend() {
 // ─── CORS ────────────────────────────────────────────────────────
 const allowedOrigins = [
   process.env.FRONTEND_URL,
-  'https://ararat-grill-beckum.de',
-  'https://www.ararat-grill-beckum.de',
+  'https://ararat-grill.com',
+  'https://www.ararat-grill.com',
 ].filter(Boolean);
 app.use(cors({
   origin: function(origin, callback) {
@@ -235,8 +235,8 @@ app.post('/api/create-stripe-checkout', async (req, res) => {
       ...(customer.email ? { customer_email: customer.email } : {}),
       locale: 'de',
       metadata: { orderNum: String(orderNum) },
-      success_url: `${process.env.FRONTEND_URL || 'https://ararat-grill-beckum.de'}?order=${orderNum}&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url:  `${process.env.FRONTEND_URL || 'https://ararat-grill-beckum.de'}?payment=cancelled`,
+      success_url: `${process.env.FRONTEND_URL || 'https://ararat-grill.com'}?order=${orderNum}&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url:  `${process.env.FRONTEND_URL || 'https://ararat-grill.com'}?payment=cancelled`,
     };
     if (process.env.STRIPE_CONNECT_ACCOUNT) {
       sessionOpts.payment_intent_data = {

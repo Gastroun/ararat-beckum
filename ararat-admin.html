@@ -412,6 +412,7 @@ html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);colo
         <button class="mode-btn" id="modeGeschlossen" onclick="setMode('geschlossen')">🔴 Zu</button>
         <span class="mode-auto-badge" id="autoModeBadge" onclick="toggleAuto()">🕐 Auto</span>
       </div>
+      <span id="printerStatus" title="Drucker-Status" style="font-size:.75rem;padding:4px 10px;border-radius:20px;background:var(--bg3);border:1px solid var(--border);color:var(--muted);cursor:default;white-space:nowrap;">🖨️ Prüfe...</span>
       <button class="logout-btn" onclick="doLogout()">Abmelden</button>
     </div>
   </div>
@@ -694,6 +695,24 @@ html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);colo
   </div>
 </div>
 
+<!-- PRINT AREA (Fully Kiosk Fallback) -->
+<div id="printArea" style="display:none;"></div>
+
+<!-- BON MODAL -->
+<div id="bonModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#1e1e2e;border-radius:12px;max-width:420px;width:95%;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+    <div style="padding:16px 20px;border-bottom:1px solid #333;display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-weight:700;font-size:16px;color:#fff;">🧾 Bon Vorschau</span>
+      <button onclick="closeBonModal()" style="background:none;border:none;color:#888;font-size:22px;cursor:pointer;line-height:1;">×</button>
+    </div>
+    <div id="bonModalContent" style="overflow-y:auto;padding:20px;flex:1;"></div>
+    <div style="padding:14px 20px;border-top:1px solid #333;display:flex;gap:10px;">
+      <button onclick="bonModalPrint()" style="flex:1;padding:10px;background:#f97316;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">🖨️ Drucken</button>
+      <button onclick="bonModalPDF()" style="flex:1;padding:10px;background:#6366f1;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">📄 Als PDF</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ─── CONFIG ───────────────────────────────────────────────────────
 const API_BASE = 'https://ararat-beckum-nfww.onrender.com/api';
@@ -783,6 +802,8 @@ function startApp(){
   loadOrders();
   pollingTimer = setInterval(loadOrders,5000);
   setInterval(loadRestaurantStatus, 30000); // Auto-Modus alle 30 Sek. prüfen
+  checkRawbt();
+  setInterval(()=>{ checkRawbt(); }, 30000);
 }
 
 // Check if already logged in
@@ -905,6 +926,7 @@ function orderCardHTML(o){
       <div class="oc-actions">
         ${nextBtn}
         <button class="oc-btn" onclick="event.stopPropagation();printOrder('${o._id}')">🖨️</button>
+        <button class="oc-btn" onclick="showBonModal(event,'${o._id}')" title="Bon anzeigen">📄</button>
         ${o.status!=='cancelled'?`<button class="oc-btn cancel" onclick="event.stopPropagation();confirmCancel('${o._id}','${o.orderNum||''}')">✕</button>`:''}
       </div>
     </div>
@@ -999,6 +1021,7 @@ function renderDetailTab(o){
     <div class="detail-actions">
       ${nextMap[o.status]?`<button class="detail-btn primary" onclick="nextStatus('${o._id}','${nextMap[o.status]}')">${nextLabel[o.status]}</button>`:'<div style="flex:1"></div>'}
       <button class="detail-btn" onclick="printOrder('${o._id}')">🖨️</button>
+      <button class="detail-btn" onclick="showBonModal({stopPropagation:()=>{}},'${o._id}')">📄 Bon</button>
       ${o.status!=='cancelled'?`<button class="detail-btn danger" onclick="confirmCancel('${o._id}','${o.orderNum||''}')">✕ Storno</button>`:''}
     </div>`;
 }
@@ -1244,54 +1267,250 @@ function toggleOpen(){
 }
 
 // ─── PRINT ────────────────────────────────────────────────────────
-function printOrder(id, estimatedMins){
-  estimatedMins = estimatedMins || 35;
-  const o=orders.find(o=>o._id===id)||incomingCurrentOrder;
-  if(!o) return;
-  const time=new Date(o.createdAt).toLocaleString('de-DE');
-  const modeText=o.mode==='lieferung'?'LIEFERUNG':'ABHOLUNG';
-  const addr=o.mode==='lieferung'&&o.customer?`${o.customer.street||''} ${o.customer.house||''}, ${o.customer.city||''}`:'';
-  const itemsRows=(o.items||[]).map(i=>`<tr><td>${i.qty}×</td><td>${i.name}${i.note?' ('+i.note+')':''}</td><td style="text-align:right">${fmt((i.price||0)*i.qty)}</td></tr>`).join('');
+// RawBT Pro App auf Android (ESC/POS Thermodrucker)
+const RAWBT_URL = 'http://127.0.0.1:19100';
+let rawbtConnected = false;
 
-  const win=window.open('','_blank','width=400,height=600');
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
-  <style>
-    body{font-family:monospace;font-size:13px;padding:20px;max-width:300px;margin:0 auto;}
-    h2{text-align:center;font-size:16px;border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:10px;}
-    .center{text-align:center;} .bold{font-weight:bold;}
-    table{width:100%;border-collapse:collapse;margin:8px 0;}
-    td{padding:2px 0;vertical-align:top;}
-    .line{border-top:1px dashed #000;margin:8px 0;}
-    .total{font-weight:bold;font-size:14px;}
-  </style></head><body>
-  <h2>🔥 Ararat Grill</h2>
-  <div class="center">Nordwall 45 · 59269 Beckum<br>Tel: 02521-9009414</div>
-  <div class="line"></div>
-  <div><b>Bestellung:</b> #${o.orderNum||'–'}</div>
-  <div><b>Zeit:</b> ${time}</div>
-  <div class="line"></div>
-  <div class="bold center">${modeText}</div>
-  ${addr?`<div class="center">${addr}</div>`:''}
-  <div class="center">${(o.customer?.first||'')+' '+(o.customer?.last||'')}</div>
-  <div class="line"></div>
-  <table>${itemsRows}</table>
-  <div class="line"></div>
-  ${o.subtotal?`<div style="display:flex;justify-content:space-between"><span>Zwischensumme</span><span>${fmt(o.subtotal)}</span></div>`:''}
-  ${o.deliveryFee?`<div style="display:flex;justify-content:space-between"><span>Liefergebühr</span><span>${fmt(o.deliveryFee)}</span></div>`:''}
-  ${o.serviceFee?`<div style="display:flex;justify-content:space-between"><span>Servicegebühr</span><span>${fmt(o.serviceFee)}</span></div>`:''}
-  <div style="display:flex;justify-content:space-between" class="total"><span>GESAMT</span><span>${fmt(o.total||0)}</span></div>
-  <div class="line"></div>
-  <div>Zahlung: ${o.payment==='bar'?'Barzahlung':o.payment==='karte'?'EC-Karte':'Kreditkarte'}</div>
-  <div>Bezahlt: ${o.paymentStatus==='paid'?'✓ JA':'!!! BITTE KASSIEREN !!!'}</div>
-  <div class="line"></div>
-  <div class="center bold">Geschätzte Zeit: ~${estimatedMins} Minuten</div>
-  <div class="center bold" style="margin-top:10px;">Vielen Dank!</div>
-  <script>window.onload=()=>{window.print();}<\/script>
-  </body></html>`);
-  win.document.close();
-  // PrintNode API Druck
-  api(`/admin/orders/${id}/print`,{method:'POST'}).catch(()=>{});
+function escposBuilder() {
+  const b = [];
+  const enc = new TextEncoder();
+  const api = {
+    init()       { b.push(0x1B,0x40); return api; },
+    cut()        { b.push(0x1D,0x56,0x41,0x03); return api; },
+    feed(n=1)    { for(let i=0;i<n;i++) b.push(0x0A); return api; },
+    bold(on)     { b.push(0x1B,0x45,on?1:0); return api; },
+    align(a)     { b.push(0x1B,0x61,a==='center'?1:a==='right'?2:0); return api; },
+    size(dbl)    { b.push(0x1D,0x21,dbl?0x11:0x00); return api; },
+    text(t)      { enc.encode(t).forEach(x=>b.push(x)); return api; },
+    line(t)      { return api.text(t).feed(); },
+    divider()    { return api.line('--------------------------------'); },
+    b64()        { return btoa(String.fromCharCode(...b)); },
+    bytes()      { return new Uint8Array(b); }
+  };
+  return api;
 }
+
+function updatePrinterStatus() {
+  const el = document.getElementById('printerStatus');
+  if (!el) return;
+  if (rawbtConnected) {
+    el.textContent = '🖨️ RawBT OK';
+    el.style.color = 'var(--green)';
+    el.style.borderColor = 'var(--green)';
+  } else if (window.fully) {
+    el.textContent = '🖨️ Fully OK';
+    el.style.color = 'var(--green)';
+    el.style.borderColor = 'var(--green)';
+  } else {
+    el.textContent = '🖨️ Getrennt';
+    el.style.color = 'var(--red)';
+    el.style.borderColor = 'var(--red)';
+  }
+}
+
+async function checkRawbt() {
+  try {
+    await fetch(RAWBT_URL, { method: 'POST', body: new Uint8Array([0]), signal: AbortSignal.timeout(2000) });
+    rawbtConnected = true;
+  } catch(e) {
+    rawbtConnected = e.message?.includes('NetworkError') || e.name === 'TypeError' ? false : true;
+  }
+  updatePrinterStatus();
+}
+
+async function rawbtPrint(order) {
+  const isD = order.mode === 'lieferung';
+  const ep  = escposBuilder();
+
+  ep.init()
+    .align('center').size(true).bold(true).line('ARARAT GRILL').size(false).bold(false)
+    .line('Nordwall 45 - 59269 Beckum')
+    .line('02521 / 9009414')
+    .feed().divider()
+    .bold(true).size(true).line(`#${order.orderNum}`).size(false).bold(false)
+    .line(new Date(order.createdAt).toLocaleString('de-DE'))
+    .feed()
+    .bold(true).line(isD ? '*** LIEFERUNG ***' : '*** ABHOLUNG ***').bold(false)
+    .divider();
+
+  ep.align('left');
+  ep.line(`${order.customer?.first||''} ${order.customer?.last||''}`);
+  if (order.customer?.phone) ep.line(order.customer.phone);
+  if (isD) {
+    ep.line(`${order.customer?.street||''} ${order.customer?.house||''}`);
+    ep.line(order.customer?.city||'');
+  }
+  ep.divider();
+
+  const cleanName = n => n.replace(/[A-Z0-9](,[A-Z0-9])+$/, '').trimEnd();
+  for (const i of (order.items||[])) {
+    const label = `${i.qty}x ${cleanName(i.name)}`.slice(0,24);
+    const price = i.price === 0 ? '  GRATIS' : `${(i.price*i.qty).toFixed(2)} EUR`;
+    ep.line(`${label.padEnd(24)}${price.padStart(10)}`);
+    if (i.note) ep.line(`  -> ${i.note}`);
+  }
+
+  ep.divider()
+    .line(`Zwischensumme:  ${String((order.subtotal||0).toFixed(2)+' EUR').padStart(14)}`);
+  if (order.deliveryFee>0)
+    ep.line(`Liefergebuehr:  ${String(order.deliveryFee.toFixed(2)+' EUR').padStart(14)}`);
+  if (order.serviceFee>0)
+    ep.line(`Servicegebuehr: ${String((order.serviceFee||0).toFixed(2)+' EUR').padStart(14)}`);
+  ep.bold(true)
+    .line(`GESAMT:         ${String((order.total||0).toFixed(2)+' EUR').padStart(14)}`)
+    .bold(false).divider();
+
+  const zahlung = order.payment==='stripe'?'KREDITKARTE':order.payment==='karte'?'EC-KARTE':'BARZAHLUNG';
+  ep.line(`Zahlung: ${zahlung}`);
+  ep.line(order.paymentStatus==='paid' ? 'BEZAHLT' : '!!! BITTE KASSIEREN !!!');
+  if (order.prepTime) ep.line(`Wartezeit: ca. ${order.prepTime} Minuten`);
+  if (order.note) ep.line(`Anm.: ${order.note}`);
+  ep.feed().align('center').line('Vielen Dank fuer Ihre Bestellung!').feed(3).cut();
+
+  const bytes = ep.bytes();
+
+  // 1. HTTP API (RawBT Pro mit aktivierter REST API)
+  try {
+    const res = await fetch(RAWBT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/octet-stream' },
+      body: bytes,
+      signal: AbortSignal.timeout(5000)
+    });
+    if (res.ok) { rawbtConnected = true; updatePrinterStatus(); return true; }
+  } catch(e) { /* HTTP nicht verfügbar */ }
+
+  // 2. Broadcast Intent (Fully Kiosk → RawBT)
+  if (window.fully || /Android/i.test(navigator.userAgent)) {
+    const b64 = btoa(String.fromCharCode(...bytes));
+    if (window.fully && typeof window.fully.sendBroadcastIntent === 'function') {
+      window.fully.sendBroadcastIntent('ru.a402d.rawbtprinter.action.PRINT_TAG', 'DATA', b64);
+      rawbtConnected = true;
+      updatePrinterStatus();
+      return true;
+    }
+    window.location.href = 'rawbt://print?base64=' + encodeURIComponent(b64);
+    rawbtConnected = true;
+    updatePrinterStatus();
+    return true;
+  }
+
+  rawbtConnected = false;
+  updatePrinterStatus();
+  return false;
+}
+
+async function smartPrint(order) {
+  // 1. RawBT HTTP API (ESC/POS – korrekte Thermodruck-Qualität)
+  const ok = await rawbtPrint(order);
+  if (ok) return;
+  // 2. Fully Kiosk Browser (HTML-Druck, Android-Fallback)
+  if (window.fully) {
+    fullyPrint(order);
+    return;
+  }
+  // 3. Fallback: Browser-Popup
+  doBrowserPrint(order);
+}
+
+function fullyPrint(order) {
+  const bonHtml = buildBonHtml(order);
+  const printArea = document.getElementById('printArea');
+  printArea.innerHTML = bonHtml;
+  printArea.style.display = 'block';
+  setTimeout(() => {
+    try { window.fully.print(); } catch(e) { window.print(); }
+    setTimeout(() => {
+      printArea.innerHTML = '';
+      printArea.style.display = 'none';
+    }, 3000);
+  }, 300);
+}
+
+function buildBonHtml(order) {
+  const isD = order.mode==='lieferung';
+  const cleanName = n => n.replace(/[A-Z0-9](,[A-Z0-9])+$/, '').trimEnd();
+  const rows = (order.items||[]).map(i=>`<tr><td>${i.qty}×</td><td>${cleanName(i.name)}${i.note?' ('+i.note+')':''}</td><td style="text-align:right">${i.price===0?'GRATIS':(i.price*i.qty).toFixed(2).replace('.',',')+' €'}</td></tr>`).join('');
+  return `<div style="font-family:monospace;font-size:12px;max-width:320px;margin:0 auto;padding:10px;background:white;color:black;">
+  <h2 style="text-align:center;margin-bottom:4px;">ARARAT GRILL</h2>
+  <p style="text-align:center;margin:2px 0;">Nordwall 45 · 59269 Beckum</p>
+  <p style="text-align:center;margin:2px 0;">02521 / 9009414</p>
+  <hr style="border:none;border-top:1px dashed #000;margin:8px 0;">
+  <h3 style="text-align:center">BESTELLUNG #${order.orderNum}</h3>
+  <p style="text-align:center;margin:2px 0;">${new Date(order.createdAt).toLocaleString('de-DE')}</p>
+  <p style="text-align:center;margin:2px 0;"><strong>${isD?'*** LIEFERUNG ***':'*** ABHOLUNG ***'}</strong></p>
+  <hr style="border:none;border-top:1px dashed #000;margin:8px 0;">
+  <p style="text-align:center;font-size:15px;font-weight:bold;margin:4px 0;">${order.customer?.first||''} ${order.customer?.last||''}</p>
+  <p style="text-align:center;margin:2px 0;">${order.customer?.phone||''}</p>
+  ${order.customer?.street?`<p style="text-align:center;font-size:14px;font-weight:bold;margin:6px 0;padding:4px;border:2px solid #000;">${order.customer.street} ${order.customer.house||''}<br>${order.customer.city||''}</p>`:''}
+  <hr style="border:none;border-top:1px dashed #000;margin:8px 0;">
+  <table style="width:100%;border-collapse:collapse;">${rows}</table>
+  <hr style="border:none;border-top:1px dashed #000;margin:8px 0;">
+  <table style="width:100%;border-collapse:collapse;">
+    <tr><td>Zwischensumme</td><td style="text-align:right">${(order.subtotal||0).toFixed(2).replace('.',',')} €</td></tr>
+    ${order.deliveryFee>0?`<tr><td>Liefergebühr</td><td style="text-align:right">${order.deliveryFee.toFixed(2).replace('.',',')} €</td></tr>`:''}
+    ${order.serviceFee>0?`<tr><td>Servicegebühr</td><td style="text-align:right">${(order.serviceFee).toFixed(2).replace('.',',')} €</td></tr>`:''}
+    <tr style="font-weight:bold;font-size:14px;border-top:1px solid #000;"><td>GESAMT</td><td style="text-align:right">${(order.total||0).toFixed(2).replace('.',',')} €</td></tr>
+  </table>
+  <hr style="border:none;border-top:1px dashed #000;margin:8px 0;">
+  <p style="text-align:center;margin:2px 0;">Zahlung: ${order.payment==='stripe'?'KREDITKARTE':order.payment==='karte'?'EC-KARTE':'BARZAHLUNG'}</p>
+  <p style="text-align:center;margin:2px 0;">${order.paymentStatus==='paid'?'✅ BEZAHLT':'!!! BITTE KASSIEREN !!!'}</p>
+  <hr style="border:none;border-top:1px dashed #000;margin:8px 0;">
+  <p style="text-align:center;margin:2px 0;">Vielen Dank!</p>
+  ${order.prepTime?`<p style="text-align:center;margin:2px 0;">~${order.prepTime} Minuten</p>`:''}
+  </div>`;
+}
+
+function doBrowserPrint(order) {
+  const w = window.open('','_blank','width=400,height=600');
+  w.document.write(`<!DOCTYPE html><html><head><title>Bon #${order.orderNum}</title></head><body>${buildBonHtml(order)}</body></html>`);
+  w.document.close();
+  setTimeout(()=>w.print(),500);
+}
+
+function printOrder(id) {
+  const o = orders.find(o=>o._id===id) || incomingCurrentOrder;
+  if (!o) return;
+  smartPrint(o);
+}
+
+let bonModalOrder = null;
+
+function showBonModal(e, id) {
+  if (e && e.stopPropagation) e.stopPropagation();
+  const order = orders.find(o=>o._id===id);
+  if (!order) return;
+  bonModalOrder = order;
+  document.getElementById('bonModalContent').innerHTML = buildBonHtml(order);
+  const modal = document.getElementById('bonModal');
+  modal.style.display = 'flex';
+}
+
+function closeBonModal() {
+  document.getElementById('bonModal').style.display = 'none';
+  bonModalOrder = null;
+}
+
+function bonModalPrint() {
+  if (!bonModalOrder) return;
+  smartPrint(bonModalOrder);
+}
+
+function bonModalPDF() {
+  if (!bonModalOrder) return;
+  const order = bonModalOrder;
+  const w = window.open('','_blank','width=420,height=700');
+  w.document.write(`<!DOCTYPE html><html><head><title>Bon #${order.orderNum}</title><style>
+    @page{size:80mm auto;margin:0mm;}
+    body{margin:0;padding:0;background:white;}
+  </style></head><body>${buildBonHtml(order)}</body></html>`);
+  w.document.close();
+  setTimeout(()=>{ w.print(); }, 400);
+}
+
+document.getElementById('bonModal').addEventListener('click', function(e) {
+  if (e.target === this) closeBonModal();
+});
 
 async function printDayReport(){
   const dateInput = document.getElementById('reportDate');
