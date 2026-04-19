@@ -971,15 +971,21 @@ function renderDetailTab(o){
   const c=document.getElementById('sidebarContent');
   if(!o){c.innerHTML='<div class="no-selection">📋<br>Bestellung auswählen</div>';return;}
   const time=new Date(o.createdAt).toLocaleString('de-DE');
-  const statusMap={confirmed:'Neu ✓',preparing:'In Zubereitung',ready:'Fertiggestellt',delivered:'Geliefert',cancelled:'Storniert',pending:'⏳ Ausstehend'};
+  const statusMap={confirmed:'Neu ✓',preparing:'In Zubereitung',ready:'Fertiggestellt',delivered:'Geliefert',cancelled:'Storniert',pending:'⏳ Ausstehend',awaiting_payment:'💳 Stripe ausstehend'};
   const nextMap={pending:'confirmed',confirmed:'preparing',preparing:'ready',ready:'delivered'};
   const nextLabel={pending:'🔔 Annehmen',confirmed:'➡ Zubereitung',preparing:'➡ Fertig',ready:'➡ Geliefert'};
 
-  const itemsHtml=(o.items||[]).map(i=>`
+  const cleanNameD = n => n.replace(/[A-Z0-9](,[A-Z0-9])+$/, '').trimEnd();
+  const itemsHtml=(o.items||[]).map(i=>{
+    const extras = (i.extraDetails||[]).map(e=>`
+      <div style="font-size:.72rem;color:var(--muted);padding-left:12px;">↳ ${e.name} <span style="color:#aaa">+${Number(e.price).toFixed(2).replace('.',',')} €</span></div>`).join('');
+    const noteRow = (!i.extraDetails?.length && i.note) ? `<div style="font-size:.72rem;color:var(--muted);padding-left:12px;">↳ ${i.note}</div>` : '';
+    return `
     <div class="detail-item">
-      <span class="detail-item-name">${i.qty}× ${i.name}${i.note?' <span style="font-size:.72rem;color:#666">(${i.note})</span>':''}</span>
+      <span class="detail-item-name">${i.qty}× ${cleanNameD(i.name)}</span>
       <span class="detail-item-price">${fmt((i.price||0)*i.qty)}</span>
-    </div>`).join('');
+    </div>${extras}${noteRow}`;
+  }).join('');
 
   const addr=o.mode==='lieferung'&&o.customer?`${o.customer.street||''} ${o.customer.house||''}, ${o.customer.city||''}`:'Abholung';
 
@@ -993,7 +999,9 @@ function renderDetailTab(o){
     </div>
     <div class="detail-total-row"><span>Zwischensumme</span><span>${fmt(o.subtotal||0)}</span></div>
     ${o.deliveryFee?`<div class="detail-total-row"><span>Liefergebühr</span><span>${fmt(o.deliveryFee)}</span></div>`:''}
+    ${o.serviceFee?`<div class="detail-total-row"><span>Servicegebühr</span><span>${fmt(o.serviceFee)}</span></div>`:''}
     <div class="detail-total-row grand"><span>Gesamt</span><span>${fmt(o.total||0)}</span></div>
+    ${o.note?`<div style="margin-top:10px;padding:10px 12px;background:rgba(255,193,7,.08);border-left:3px solid #f5a623;border-radius:0 6px 6px 0;font-size:.82rem;color:#e8a020;">📝 <strong>Kundennotiz:</strong> ${o.note}</div>`:''}
     <div style="height:14px;"></div>
 
     <div class="detail-section">
@@ -1689,11 +1697,16 @@ function showNextIncoming(){
   document.getElementById('incomingOrderNum').textContent = '#' + (o.orderNum||'–');
 
   // Fill items
-  const itemsHtml = (o.items||[]).map(i=>`
+  const cleanNameI = n => n.replace(/[A-Z0-9](,[A-Z0-9])+$/, '').trimEnd();
+  const itemsHtml = (o.items||[]).map(i=>{
+    const extras = (i.extraDetails||[]).map(e=>`<div style="font-size:.72rem;color:var(--muted);padding-left:14px;margin-top:1px;">↳ ${e.name} <span style="color:#666">+${Number(e.price).toFixed(2).replace('.',',')} €</span></div>`).join('');
+    const noteRow = (!i.extraDetails?.length && i.note) ? `<div style="font-size:.72rem;color:var(--muted);padding-left:14px;margin-top:1px;">↳ ${i.note}</div>` : '';
+    return `
     <div class="incoming-item-row">
-      <span class="incoming-item-name">${i.qty}× ${i.name}${i.note?' <span style="font-size:.72rem;color:var(--muted)">('+i.note+')</span>':''}</span>
+      <span class="incoming-item-name">${i.qty}× ${cleanNameI(i.name)}</span>
       <span class="incoming-item-price">${fmt((i.price||0)*i.qty)}</span>
-    </div>`).join('');
+    </div>${extras}${noteRow}`;
+  }).join('');
   document.getElementById('incomingItems').innerHTML = itemsHtml;
   document.getElementById('incomingTotal').textContent = fmt(o.total||0);
 
