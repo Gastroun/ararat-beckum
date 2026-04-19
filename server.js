@@ -572,7 +572,7 @@ app.post('/api/admin/orders/:id/print', authMiddleware, async (req, res) => {
 // ═══════════════════════════════════════════════════════════════════
 
 async function sendConfirmationEmail(order, estimatedMinutes) {
-  if (!resend || !order.customer?.email) return;
+  if (!order.customer || !order.customer.email) return;
   try {
     const mins = estimatedMinutes || order.prepTime || (order.mode === 'lieferung' ? 45 : 20);
     const modeText = order.mode === 'lieferung' ? '🛵 Lieferung' : '🏃 Abholung';
