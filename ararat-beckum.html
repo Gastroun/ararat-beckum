@@ -2920,7 +2920,7 @@ async function submitOrder(){
         street:coMode==='lieferung'?street:'',
         house:coMode==='lieferung'?house:'',
       },
-      items:cart.map(i=>({name:i.name,price:i.price,qty:i.qty,note:i.note||''})),
+      items:cart.map(i=>({num:i.num||'',name:i.name,price:i.price,qty:i.qty,note:i.note||'',extraDetails:i.extraDetails||[]})),
       subtotal, deliveryFee:fee, serviceFee, total,
       note:document.getElementById('coNote').value.trim(),
     };

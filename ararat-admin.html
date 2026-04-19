@@ -918,7 +918,8 @@ function orderCardHTML(o){
   const time=new Date(o.createdAt).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
   const modeIcon=o.mode==='lieferung'?'🛵':'🏃';
   const payIcon=o.payment==='bar'?'💵':o.payment==='karte'?'💳':'📱';
-  const itemsPreview=(o.items||[]).slice(0,3).map(i=>`${i.qty}× ${i.name}`).join(' · ')+(o.items&&o.items.length>3?` +${o.items.length-3} mehr`:'');
+  const cleanNameP = n => n.replace(/[A-Z0-9](,[A-Z0-9])+$/, '').trimEnd();
+  const itemsPreview=(o.items||[]).slice(0,3).map(i=>`${i.qty}× ${i.num?i.num+' ':''}${cleanNameP(i.name)}`).join(' · ')+(o.items&&o.items.length>3?` +${o.items.length-3} mehr`:'');
   const paidBadge=o.paymentStatus==='paid'
     ?`<span class="badge badge-paid" onclick="event.stopPropagation();togglePaid('${o._id}')">✓ Bezahlt</span>`
     :`<span class="badge badge-unpaid" onclick="event.stopPropagation();togglePaid('${o._id}')">✗ Offen</span>`;
@@ -982,7 +983,7 @@ function renderDetailTab(o){
     const noteRow = (!i.extraDetails?.length && i.note) ? `<div style="font-size:.72rem;color:var(--muted);padding-left:12px;">↳ ${i.note}</div>` : '';
     return `
     <div class="detail-item">
-      <span class="detail-item-name">${i.qty}× ${cleanNameD(i.name)}</span>
+      <span class="detail-item-name">${i.qty}× ${i.num?`<span style="font-size:.7rem;background:var(--gold);color:#fff;border-radius:3px;padding:1px 5px;margin-right:4px;">${i.num}</span>`:''}${cleanNameD(i.name)}</span>
       <span class="detail-item-price">${fmt((i.price||0)*i.qty)}</span>
     </div>${extras}${noteRow}`;
   }).join('');
@@ -1367,7 +1368,7 @@ async function rawbtPrint(order) {
 
   const cleanName = n => n.replace(/[A-Z0-9](,[A-Z0-9])+$/, '').trimEnd();
   for (const i of (order.items||[])) {
-    const label = `${i.qty}x ${cleanName(i.name)}`.slice(0,24);
+    const label = `${i.qty}x ${i.num?i.num+' ':''}${cleanName(i.name)}`.slice(0,24);
     const price = i.price === 0 ? '  GRATIS' : `${(i.price*i.qty).toFixed(2)} EUR`;
     ep.line(`${label.padEnd(24)}${price.padStart(10)}`);
     if (i.extraDetails && i.extraDetails.length > 0) {
@@ -1460,7 +1461,7 @@ function buildBonHtml(order) {
   const isD = order.mode==='lieferung';
   const cleanName = n => n.replace(/[A-Z0-9](,[A-Z0-9])+$/, '').trimEnd();
   const rows = (order.items||[]).flatMap(i=>{
-    const mainRow = `<tr><td>${i.qty}×</td><td>${cleanName(i.name)}</td><td style="text-align:right">${i.price===0?'GRATIS':(i.price*i.qty).toFixed(2).replace('.',',')+' €'}</td></tr>`;
+    const mainRow = `<tr><td>${i.qty}×</td><td>${i.num?`<span style="font-size:10px;font-weight:bold;margin-right:3px;">${i.num}</span> `:''}${cleanName(i.name)}</td><td style="text-align:right">${i.price===0?'GRATIS':(i.price*i.qty).toFixed(2).replace('.',',')+' €'}</td></tr>`;
     const extras = (i.extraDetails||[]).map(e=>`<tr><td></td><td style="color:#888;font-size:11px;">↳ ${e.name}</td><td style="text-align:right;color:#888;font-size:11px;">+${Number(e.price).toFixed(2).replace('.',',')} €</td></tr>`);
     const noteRow = (!i.extraDetails?.length && i.note) ? [`<tr><td></td><td colspan="2" style="color:#888;font-size:11px;">↳ ${i.note}</td></tr>`] : [];
     return [mainRow, ...extras, ...noteRow];
@@ -1703,7 +1704,7 @@ function showNextIncoming(){
     const noteRow = (!i.extraDetails?.length && i.note) ? `<div style="font-size:.72rem;color:var(--muted);padding-left:14px;margin-top:1px;">↳ ${i.note}</div>` : '';
     return `
     <div class="incoming-item-row">
-      <span class="incoming-item-name">${i.qty}× ${cleanNameI(i.name)}</span>
+      <span class="incoming-item-name">${i.qty}× ${i.num?`<span style="font-size:.7rem;background:var(--gold);color:#fff;border-radius:3px;padding:1px 5px;margin-right:4px;">${i.num}</span>`:''}${cleanNameI(i.name)}</span>
       <span class="incoming-item-price">${fmt((i.price||0)*i.qty)}</span>
     </div>${extras}${noteRow}`;
   }).join('');
@@ -2545,7 +2546,7 @@ function renderNoCart(){
   el.innerHTML = noCart.map((item,i)=>`
     <div class="no-cart-item">
       <div style="flex:1;">
-        <div class="no-cart-item-name">${item.name}</div>
+        <div class="no-cart-item-name">${item.num?`<span style="font-size:.68rem;background:var(--gold);color:#fff;border-radius:3px;padding:0 4px;margin-right:4px;">${item.num}</span>`:''}${item.name}</div>
         ${item.note?`<div class="no-cart-item-note">${item.note}</div>`:''}
       </div>
       <div class="no-cart-qty">
@@ -2604,7 +2605,7 @@ async function submitNewOrder(){
       street: noMode==='lieferung' ? document.getElementById('noStreet').value.trim() : '',
       house: noMode==='lieferung' ? document.getElementById('noHouse').value.trim() : ''
     },
-    items: noCart.map(i=>({name:i.name, price:i.price, qty:i.qty, note:i.note||''})),
+    items: noCart.map(i=>({num:i.num||'', name:i.name, price:i.price, qty:i.qty, note:i.note||'', extraDetails:i.extraDetails||[]})),
     subtotal,
     deliveryFee: fee,
     serviceFee: NO_SERVICE_FEE,

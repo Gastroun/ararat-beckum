@@ -68,7 +68,7 @@ const orderSchema = new mongoose.Schema({
     first: String, last: String, email: String,
     phone: String, city: String, street: String, house: String
   },
-  items: [{ name: String, price: Number, qty: Number, note: String }],
+  items: [{ num: String, name: String, price: Number, qty: Number, note: String, extraDetails: [{ name: String, price: Number }] }],
   subtotal: Number,
   deliveryFee: { type: Number, default: 0 },
   serviceFee: { type: Number, default: 0.50 },
