@@ -299,6 +299,32 @@ app.post('/api/stripe-webhook', async (req, res) => {
   res.json({ received: true });
 });
 
+// ── Stripe Zahlung manuell prüfen (Fallback wenn Webhook nicht feuert) ─
+app.post('/api/verify-payment', async (req, res) => {
+  try {
+    const { session_id } = req.body;
+    if (!session_id) return res.status(400).json({ message: 'session_id fehlt' });
+    const session = await getStripe().checkout.sessions.retrieve(session_id);
+    if (session.payment_status !== 'paid') {
+      return res.json({ success: false, message: 'Noch nicht bezahlt' });
+    }
+    const order = await Order.findOne({ stripeSessionId: session_id });
+    if (!order) return res.status(404).json({ message: 'Bestellung nicht gefunden' });
+    if (order.status === 'pending' && order.paymentStatus === 'paid') {
+      return res.json({ success: true, message: 'Bereits verarbeitet', orderNum: order.orderNum });
+    }
+    order.paymentStatus = 'paid';
+    order.status = 'pending';
+    if (session.payment_intent) order.stripePaymentIntentId = session.payment_intent;
+    await order.save();
+    console.log(`💳 verify-payment: Bestellung #${order.orderNum} → pending`);
+    res.json({ success: true, orderNum: order.orderNum });
+  } catch (err) {
+    console.error('verify-payment Fehler:', err);
+    res.status(500).json({ message: 'Fehler: ' + err.message });
+  }
+});
+
 // ═══════════════════════════════════════════════════════════════════
 // ADMIN ROUTES (alle durch Auth geschützt)
 // ═══════════════════════════════════════════════════════════════════
@@ -379,8 +405,8 @@ app.get('/api/admin/orders/pending', authMiddleware, async (req, res) => {
 // ── Alle Bestellungen abrufen ──────────────────────────────────────
 app.get('/api/admin/orders', authMiddleware, async (req, res) => {
   try {
-    // Confirmed+ (normale Bestellliste, OHNE pending)
-    const orders = await Order.find({ status: { $nin: ['pending','awaiting_payment'] } })
+    // Confirmed+ und awaiting_payment (für Stripe-Übersicht)
+    const orders = await Order.find({ status: { $nin: ['pending'] } })
       .sort({ createdAt: -1 })
       .limit(200);
 
@@ -502,6 +528,30 @@ app.delete('/api/admin/orders/:id', authMiddleware, async (req, res) => {
     res.json({ success: true, order, refundStatus });
   } catch (err) {
     res.status(500).json({ message: 'Fehler beim Stornieren' });
+  }
+});
+
+// ── Stripe-Einbuchung: stuck awaiting_payment Bestellungen recovern ──
+app.post('/api/admin/recover-stripe-orders', authMiddleware, async (_req, res) => {
+  try {
+    const stuck = await Order.find({ status: 'awaiting_payment', payment: 'stripe' });
+    let recovered = 0;
+    for (const order of stuck) {
+      try {
+        const session = await getStripe().checkout.sessions.retrieve(order.stripeSessionId);
+        if (session.payment_status === 'paid') {
+          order.paymentStatus = 'paid';
+          order.status = 'pending';
+          if (session.payment_intent) order.stripePaymentIntentId = session.payment_intent;
+          await order.save();
+          recovered++;
+          console.log(`🔁 recover: Bestellung #${order.orderNum} → pending`);
+        }
+      } catch (e) { console.warn(`recover skip #${order.orderNum}:`, e.message); }
+    }
+    res.json({ success: true, checked: stuck.length, recovered });
+  } catch (err) {
+    res.status(500).json({ message: 'Fehler: ' + err.message });
   }
 });
 

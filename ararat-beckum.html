@@ -3347,6 +3347,9 @@ function applyAvailability(){
     const isDisabled = disabledItems.has(name);
 
     if(isDisabled){
+      if(card.getAttribute('data-hide-when-unavailable')==='1'){
+        card.style.display='none'; return;
+      }
       if(card.classList.contains('sold-out')) return;
       card.classList.add('sold-out');
       card.style.cursor = 'default';
@@ -3359,6 +3362,9 @@ function applyAvailability(){
         footer.insertAdjacentHTML('beforeend', '<span class="sold-out-badge">Ausverkauft</span>');
       }
     } else {
+      if(card.getAttribute('data-hide-when-unavailable')==='1'){
+        card.style.display=''; return;
+      }
       if(!card.classList.contains('sold-out')) return;
       card.classList.remove('sold-out');
       card.style.cursor = '';
@@ -3437,6 +3443,35 @@ function startSync(){
 }
 
 document.addEventListener('DOMContentLoaded', function(){
+  // Stripe-Rückkehr erkennen und Zahlung bestätigen
+  const urlParams = new URLSearchParams(window.location.search);
+  const stripeSessionId = urlParams.get('session_id');
+  const stripeOrderNum  = urlParams.get('order');
+  const paymentCancelled = urlParams.get('payment');
+  if(stripeSessionId && stripeOrderNum){
+    // Fallback: Zahlung direkt bei Stripe prüfen (falls Webhook nicht gefeuert hat)
+    fetch(API_BASE+'/verify-payment',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({session_id:stripeSessionId})
+    }).catch(()=>{});
+    // Bestätigung dem Kunden anzeigen
+    openCheckout();
+    document.getElementById('coForm').style.display='none';
+    document.getElementById('coConfirm').style.display='';
+    document.getElementById('coOrderNum').textContent='#'+stripeOrderNum;
+    document.getElementById('coConfirmIcon').textContent='✅';
+    document.getElementById('coConfirmTitle').textContent='Zahlung erfolgreich!';
+    document.getElementById('coConfirmText').innerHTML='Deine Zahlung war erfolgreich.<br>Bestellung <strong>#'+stripeOrderNum+'</strong> wartet auf Bestätigung vom Restaurant.';
+    const waitEl=document.getElementById('coConfirmWaiting');
+    if(waitEl) waitEl.style.display='none';
+    document.getElementById('coConfirmCloseBtn').style.display='block';
+    // URL bereinigen
+    history.replaceState(null,'',window.location.pathname);
+  } else if(paymentCancelled==='cancelled'){
+    showToast('❌ Zahlung abgebrochen – Bestellung wurde nicht aufgegeben.');
+    history.replaceState(null,'',window.location.pathname);
+  }
+
   startSync();
   // Alle 30 Sekunden aktualisieren
   setInterval(syncWithBackend, 30000);

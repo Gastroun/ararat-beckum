@@ -100,6 +100,7 @@ html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);colo
 .badge-cancel{background:rgba(229,57,53,.18);color:var(--s-cancel);}
 .badge-paid{background:rgba(76,175,80,.15);color:#66bb6a;cursor:pointer;}
 .badge-unpaid{background:rgba(229,57,53,.15);color:#ef5350;cursor:pointer;}
+.badge-stripe-wait{background:rgba(232,160,32,.18);color:#e8a020;}
 .oc-items{padding:0 14px 8px;font-size:.79rem;color:var(--muted);}
 .oc-bottom{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-top:1px solid var(--border);}
 .oc-price{font-weight:700;font-size:.95rem;color:var(--text);}
@@ -413,6 +414,7 @@ html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);colo
         <span class="mode-auto-badge" id="autoModeBadge" onclick="toggleAuto()">🕐 Auto</span>
       </div>
       <span id="printerStatus" title="Drucker-Status" style="font-size:.75rem;padding:4px 10px;border-radius:20px;background:var(--bg3);border:1px solid var(--border);color:var(--muted);cursor:default;white-space:nowrap;">🖨️ Prüfe...</span>
+      <button class="logout-btn" onclick="recoverStripeOrders()" title="Stripe-Zahlungen manuell prüfen und einbuchen">🔁 Stripe</button>
       <button class="logout-btn" onclick="doLogout()">Abmelden</button>
     </div>
   </div>
@@ -780,6 +782,18 @@ function doLogout(){
   document.getElementById('loginScreen').style.display='flex';
 }
 
+async function recoverStripeOrders(){
+  try{
+    const res = await api('/admin/recover-stripe-orders',{method:'POST'});
+    if(!res.ok) throw new Error('Server-Fehler');
+    const data = await res.json();
+    showToast(`🔁 ${data.recovered} von ${data.checked} Stripe-Bestellung(en) eingebucht`);
+    if(data.recovered > 0) await loadOrders();
+  } catch(e){
+    showToast('Fehler bei Stripe-Einbuchung');
+  }
+}
+
 // ─── API HELPER ───────────────────────────────────────────────────
 async function api(path,opts={}){
   const res = await fetch(API_BASE+path,{
@@ -895,8 +909,8 @@ function renderOrders(){
 }
 
 function orderCardHTML(o){
-  const statusMap={confirmed:'Neu ✓',preparing:'In Zubereitung',ready:'Fertiggestellt',delivered:'Geliefert',cancelled:'Storniert',pending:'⏳ Ausstehend'};
-  const badgeMap={confirmed:'new',preparing:'prep',ready:'ready',delivered:'del',cancelled:'cancel',pending:'cancel'};
+  const statusMap={confirmed:'Neu ✓',preparing:'In Zubereitung',ready:'Fertiggestellt',delivered:'Geliefert',cancelled:'Storniert',pending:'⏳ Ausstehend',awaiting_payment:'💳 Stripe ausstehend'};
+  const badgeMap={confirmed:'new',preparing:'prep',ready:'ready',delivered:'del',cancelled:'cancel',pending:'cancel',awaiting_payment:'stripe-wait'};
   const nextMap={pending:'confirmed',confirmed:'preparing',preparing:'ready',ready:'delivered'};
   const nextLabel={pending:'🔔 Annehmen',confirmed:'➡ Zubereitung',preparing:'➡ Fertig',ready:'➡ Geliefert'};
   const status=statusMap[o.status]||o.status;
@@ -921,6 +935,7 @@ function orderCardHTML(o){
       </div>
     </div>
     <div class="oc-items">${itemsPreview||'–'}</div>
+    ${o.note?`<div style="font-size:.72rem;color:#e8a020;margin:3px 8px 0;padding:3px 6px;background:rgba(232,160,32,.08);border-radius:4px;">📝 ${o.note}</div>`:''}
     <div class="oc-bottom">
       <span class="oc-price">${fmt(o.total||0)}</span>
       <div class="oc-actions">
@@ -1347,7 +1362,13 @@ async function rawbtPrint(order) {
     const label = `${i.qty}x ${cleanName(i.name)}`.slice(0,24);
     const price = i.price === 0 ? '  GRATIS' : `${(i.price*i.qty).toFixed(2)} EUR`;
     ep.line(`${label.padEnd(24)}${price.padStart(10)}`);
-    if (i.note) ep.line(`  -> ${i.note}`);
+    if (i.extraDetails && i.extraDetails.length > 0) {
+      for (const e of i.extraDetails) {
+        ep.line(`  -> ${e.name} +${Number(e.price).toFixed(2)} EUR`);
+      }
+    } else if (i.note) {
+      ep.line(`  -> ${i.note}`);
+    }
   }
 
   ep.divider()
@@ -1430,7 +1451,12 @@ function fullyPrint(order) {
 function buildBonHtml(order) {
   const isD = order.mode==='lieferung';
   const cleanName = n => n.replace(/[A-Z0-9](,[A-Z0-9])+$/, '').trimEnd();
-  const rows = (order.items||[]).map(i=>`<tr><td>${i.qty}×</td><td>${cleanName(i.name)}${i.note?' ('+i.note+')':''}</td><td style="text-align:right">${i.price===0?'GRATIS':(i.price*i.qty).toFixed(2).replace('.',',')+' €'}</td></tr>`).join('');
+  const rows = (order.items||[]).flatMap(i=>{
+    const mainRow = `<tr><td>${i.qty}×</td><td>${cleanName(i.name)}</td><td style="text-align:right">${i.price===0?'GRATIS':(i.price*i.qty).toFixed(2).replace('.',',')+' €'}</td></tr>`;
+    const extras = (i.extraDetails||[]).map(e=>`<tr><td></td><td style="color:#888;font-size:11px;">↳ ${e.name}</td><td style="text-align:right;color:#888;font-size:11px;">+${Number(e.price).toFixed(2).replace('.',',')} €</td></tr>`);
+    const noteRow = (!i.extraDetails?.length && i.note) ? [`<tr><td></td><td colspan="2" style="color:#888;font-size:11px;">↳ ${i.note}</td></tr>`] : [];
+    return [mainRow, ...extras, ...noteRow];
+  }).join('');
   return `<div style="font-family:monospace;font-size:12px;max-width:320px;margin:0 auto;padding:10px;background:white;color:black;">
   <h2 style="text-align:center;margin-bottom:4px;">ARARAT GRILL</h2>
   <p style="text-align:center;margin:2px 0;">Nordwall 45 · 59269 Beckum</p>
@@ -1458,6 +1484,7 @@ function buildBonHtml(order) {
   <hr style="border:none;border-top:1px dashed #000;margin:8px 0;">
   <p style="text-align:center;margin:2px 0;">Vielen Dank!</p>
   ${order.prepTime?`<p style="text-align:center;margin:2px 0;">~${order.prepTime} Minuten</p>`:''}
+  ${order.note?`<hr style="border:none;border-top:1px dashed #000;margin:8px 0;"><p style="margin:2px 0;font-size:11px;"><strong>Kundennotiz:</strong> ${order.note}</p>`:''}
   </div>`;
 }
 
@@ -1712,6 +1739,9 @@ async function acceptIncoming(){
   btn.disabled = true;
   btn.textContent = '⏳ Wird verarbeitet...';
 
+  // Alarm sofort stoppen – egal was danach passiert
+  stopAlarm();
+
   const o = incomingCurrentOrder;
   try{
     // 1. Backend: Status auf confirmed setzen + Zeit speichern + E-Mail + Druck auslösen
@@ -1727,8 +1757,7 @@ async function acceptIncoming(){
     // 2. Bon im Browser drucken (öffnet Druckfenster)
     printOrder(o._id, selectedMinutes);
 
-    // 3. Alarm stoppen, Modal schließen
-    stopAlarm();
+    // 3. Modal schließen
     closeIncomingPopup();
     await loadOrders();
     showToast(`✓ Bestellung #${o.orderNum||''} angenommen – ${selectedMinutes} Min.`);
