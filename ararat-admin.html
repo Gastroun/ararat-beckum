@@ -980,7 +980,7 @@ function renderDetailTab(o){
   const itemsHtml=(o.items||[]).map(i=>{
     const extras = (i.extraDetails||[]).map(e=>`
       <div style="font-size:.72rem;color:var(--muted);padding-left:12px;">↳ ${e.name} <span style="color:#aaa">+${Number(e.price).toFixed(2).replace('.',',')} €</span></div>`).join('');
-    const noteRow = (!i.extraDetails?.length && i.note) ? `<div style="font-size:.72rem;color:var(--muted);padding-left:12px;">↳ ${i.note}</div>` : '';
+    const noteRow = (!(i.extraDetails && i.extraDetails.length) && i.note) ? `<div style="font-size:.72rem;color:var(--muted);padding-left:12px;">↳ ${i.note}</div>` : '';
     return `
     <div class="detail-item">
       <span class="detail-item-name">${i.qty}× ${i.num?`<span style="font-size:.7rem;background:var(--gold);color:#fff;border-radius:3px;padding:1px 5px;margin-right:4px;">${i.num}</span>`:''}${cleanNameD(i.name)}</span>
@@ -1460,12 +1460,14 @@ function fullyPrint(order) {
 function buildBonHtml(order) {
   const isD = order.mode==='lieferung';
   const cleanName = n => n.replace(/[A-Z0-9](,[A-Z0-9])+$/, '').trimEnd();
-  const rows = (order.items||[]).flatMap(i=>{
-    const mainRow = `<tr><td>${i.qty}×</td><td>${i.num?`<span style="font-size:10px;font-weight:bold;margin-right:3px;">${i.num}</span> `:''}${cleanName(i.name)}</td><td style="text-align:right">${i.price===0?'GRATIS':(i.price*i.qty).toFixed(2).replace('.',',')+' €'}</td></tr>`;
-    const extras = (i.extraDetails||[]).map(e=>`<tr><td></td><td style="color:#888;font-size:11px;">↳ ${e.name}</td><td style="text-align:right;color:#888;font-size:11px;">+${Number(e.price).toFixed(2).replace('.',',')} €</td></tr>`);
-    const noteRow = (!i.extraDetails?.length && i.note) ? [`<tr><td></td><td colspan="2" style="color:#888;font-size:11px;">↳ ${i.note}</td></tr>`] : [];
-    return [mainRow, ...extras, ...noteRow];
-  }).join('');
+  var rowParts = [];
+  (order.items||[]).forEach(function(i){
+    rowParts.push('<tr><td>'+i.qty+'×</td><td>'+(i.num?'<span style="font-size:10px;font-weight:bold;margin-right:3px;">'+i.num+'</span> ':'')+cleanName(i.name)+'</td><td style="text-align:right">'+(i.price===0?'GRATIS':(i.price*i.qty).toFixed(2).replace('.',',')+' €')+'</td></tr>');
+    var ed = i.extraDetails || [];
+    ed.forEach(function(e){ rowParts.push('<tr><td></td><td style="color:#888;font-size:11px;">↳ '+e.name+'</td><td style="text-align:right;color:#888;font-size:11px;">+'+Number(e.price).toFixed(2).replace('.',',')+' €</td></tr>'); });
+    if(!ed.length && i.note) rowParts.push('<tr><td></td><td colspan="2" style="color:#888;font-size:11px;">↳ '+i.note+'</td></tr>');
+  });
+  const rows = rowParts.join('');
   return `<div style="font-family:monospace;font-size:12px;max-width:320px;margin:0 auto;padding:10px;background:white;color:black;">
   <h2 style="text-align:center;margin-bottom:4px;">ARARAT GRILL</h2>
   <p style="text-align:center;margin:2px 0;">Nordwall 45 · 59269 Beckum</p>
@@ -1701,7 +1703,7 @@ function showNextIncoming(){
   const cleanNameI = n => n.replace(/[A-Z0-9](,[A-Z0-9])+$/, '').trimEnd();
   const itemsHtml = (o.items||[]).map(i=>{
     const extras = (i.extraDetails||[]).map(e=>`<div style="font-size:.72rem;color:var(--muted);padding-left:14px;margin-top:1px;">↳ ${e.name} <span style="color:#666">+${Number(e.price).toFixed(2).replace('.',',')} €</span></div>`).join('');
-    const noteRow = (!i.extraDetails?.length && i.note) ? `<div style="font-size:.72rem;color:var(--muted);padding-left:14px;margin-top:1px;">↳ ${i.note}</div>` : '';
+    const noteRow = (!(i.extraDetails && i.extraDetails.length) && i.note) ? `<div style="font-size:.72rem;color:var(--muted);padding-left:14px;margin-top:1px;">↳ ${i.note}</div>` : '';
     return `
     <div class="incoming-item-row">
       <span class="incoming-item-name">${i.qty}× ${i.num?`<span style="font-size:.7rem;background:var(--gold);color:#fff;border-radius:3px;padding:1px 5px;margin-right:4px;">${i.num}</span>`:''}${cleanNameI(i.name)}</span>
@@ -1759,27 +1761,40 @@ async function acceptIncoming(){
   const o = incomingCurrentOrder;
   try{
     // 1. Backend: Status auf confirmed setzen + Zeit speichern + E-Mail + Druck auslösen
-    const res = await api(`/admin/orders/${o._id}/confirm`, {
-      method: 'PATCH',
-      body: JSON.stringify({ estimatedMinutes: selectedMinutes })
-    });
-
-    if(!res || !res.ok){
-      throw new Error('Server-Fehler');
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000); // 12s Timeout
+    let res;
+    try {
+      res = await fetch(API_BASE + '/admin/orders/' + o._id + '/confirm', {
+        method: 'PATCH',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estimatedMinutes: selectedMinutes }),
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timeout);
     }
 
-    // 2. Bon im Browser drucken (öffnet Druckfenster)
-    printOrder(o._id, selectedMinutes);
+    if(!res || !res.ok){
+      throw new Error('Server ' + (res ? res.status : 'keine Antwort'));
+    }
+
+    // 2. Bon im Browser drucken
+    printOrder(o._id);
 
     // 3. Modal schließen
     closeIncomingPopup();
-    await loadOrders();
-    showToast(`✓ Bestellung #${o.orderNum||''} angenommen – ${selectedMinutes} Min.`);
+    loadOrders();
+    showToast('✓ Bestellung #' + (o.orderNum||'') + ' angenommen – ' + selectedMinutes + ' Min.');
 
   } catch(e){
     btn.disabled = false;
     btn.innerHTML = '✓ Bestellung annehmen & Bon drucken';
-    showToast('Fehler beim Annehmen – bitte erneut versuchen');
+    if(e && e.name === 'AbortError'){
+      showToast('⏱ Timeout – Server antwortet nicht. Nochmal versuchen.');
+    } else {
+      showToast('Fehler: ' + (e ? e.message : 'unbekannt') + ' – bitte erneut versuchen');
+    }
   }
 }
 
