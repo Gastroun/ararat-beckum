@@ -2030,17 +2030,39 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);}
           </div>
           <div class="pay-opt" id="payStripe" onclick="setPayment('stripe')">
             <div class="pay-opt-icon">🔒</div>
-            <div class="pay-opt-label">Kreditkarte</div>
+            <div class="pay-opt-label">Online bezahlen</div>
             <div class="pay-opt-sub"><span class="stripe-badge">STRIPE</span></div>
           </div>
         </div>
         <!-- Stripe redirect info -->
         <div class="stripe-form" id="stripeForm">
-          <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg);border-radius:8px;">
-            <span style="font-size:1.3rem;">🔒</span>
-            <div>
-              <div style="font-size:.82rem;font-weight:600;color:var(--text);">Sichere Zahlung via Stripe</div>
-              <div style="font-size:.73rem;color:var(--muted);margin-top:1px;">Du wirst nach der Bestellung auf die sichere Stripe-Zahlungsseite weitergeleitet.</div>
+          <div style="padding:10px 12px;background:var(--bg);border-radius:8px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+              <span style="font-size:1.3rem;">🔒</span>
+              <div>
+                <div style="font-size:.82rem;font-weight:600;color:var(--text);">Sichere Zahlung via Stripe</div>
+                <div style="font-size:.73rem;color:var(--muted);margin-top:1px;">Du wirst auf die sichere Stripe-Zahlungsseite weitergeleitet.</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:2px;">
+              <!-- Visa -->
+              <span style="display:inline-flex;align-items:center;justify-content:center;background:#1a1f71;color:#fff;font-size:.7rem;font-weight:900;font-family:Arial;border-radius:4px;padding:3px 7px;letter-spacing:.5px;">VISA</span>
+              <!-- Mastercard -->
+              <svg width="34" height="22" viewBox="0 0 34 22" xmlns="http://www.w3.org/2000/svg" style="border-radius:4px;display:block;">
+                <rect width="34" height="22" fill="#1a1a1a" rx="4"/>
+                <circle cx="13" cy="11" r="7" fill="#eb001b"/>
+                <circle cx="21" cy="11" r="7" fill="#f79e1b"/>
+                <path d="M17 5.2a7 7 0 0 1 0 11.6A7 7 0 0 1 17 5.2z" fill="#ff5f00"/>
+              </svg>
+              <!-- Amex -->
+              <span style="display:inline-flex;align-items:center;justify-content:center;background:#016fcf;color:#fff;font-size:.62rem;font-weight:800;font-family:Arial;border-radius:4px;padding:3px 6px;letter-spacing:.3px;">AMEX</span>
+              <!-- Apple Pay -->
+              <span style="display:inline-flex;align-items:center;justify-content:center;background:#000;color:#fff;font-size:.7rem;font-weight:600;font-family:-apple-system,Arial;border-radius:4px;padding:3px 7px;gap:2px;"> Pay</span>
+              <!-- Google Pay -->
+              <span style="display:inline-flex;align-items:center;justify-content:center;background:#fff;border:1px solid #dadce0;font-size:.7rem;font-weight:500;font-family:Arial;border-radius:4px;padding:3px 7px;color:#3c4043;gap:1px;"><span style="color:#4285f4;font-weight:700;">G</span>Pay</span>
+              <!-- Klarna -->
+              <span style="display:inline-flex;align-items:center;justify-content:center;background:#ffb3c7;color:#000;font-size:.7rem;font-weight:700;font-family:Arial;border-radius:4px;padding:3px 7px;">Klarna</span>
+              <span style="font-size:.65rem;color:var(--muted);white-space:nowrap;">& mehr</span>
             </div>
           </div>
         </div>
