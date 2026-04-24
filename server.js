@@ -252,7 +252,9 @@ app.post('/api/create-stripe-checkout', async (req, res) => {
     }
 
     // Stripe Connect: Provision berechnen
-    const appFee = Math.round(((serviceFee||0) + (subtotal * 0.05)) * 100);
+    // stripeFee in appFee einrechnen → Gastro trägt Stripe-Gebühren, FlueVate behält vollen Anteil
+    const stripeFee = Math.round((total * 0.015 + 0.25) * 100);
+    const appFee = Math.round(((serviceFee||0) + (subtotal * 0.05)) * 100) + stripeFee;
 
     const sessionOpts = {
       payment_method_types: ['card'],
