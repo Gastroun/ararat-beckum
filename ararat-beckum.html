@@ -2765,7 +2765,25 @@ function addToCartFromPopup(){
   updateCartUI();closePopup();
   showToast(addedName+' hinzugefügt ✓');
 }
+// ── Cola-Dose Automatik ──────────────────────────────────────────
+function getColaThreshold(){
+  if(coMode==='lieferung') return 0;   // Lieferung: immer
+  return 25.00;                        // Abholung: ab 25 €
+}
+function syncColaDose(){
+  const real=cart.filter(i=>!i._isCola);
+  const realSubtotal=real.reduce((s,c)=>s+c.price*c.qty,0);
+  const shouldAdd=real.length>0 && realSubtotal>=getColaThreshold();
+  const idx=cart.findIndex(i=>i._isCola);
+  if(shouldAdd && idx<0){
+    cart.push({_isCola:true,num:'🥤',name:'Cola-Dose (gratis)',price:0,qty:1,note:'Automatisch hinzugefügt'});
+  } else if(!shouldAdd && idx>=0){
+    cart.splice(idx,1);
+  }
+}
+
 function updateCartUI(){
+  syncColaDose();
   const total=cart.reduce((s,c)=>s+c.price*c.qty,0);
   const count=cart.reduce((s,c)=>s+c.qty,0);
   document.getElementById('cartCount').textContent=count;
@@ -2779,13 +2797,22 @@ function updateCartUI(){
   footer.style.display='block';container.innerHTML='';
   cart.forEach((item,i)=>{
     const div=document.createElement('div');div.className='cart-item';
-    div.innerHTML='<div class="cart-item-emoji" style="font-size:.85rem;font-weight:700;color:var(--muted);opacity:.6;width:40px;text-align:center;">'+item.num+'</div><div class="cart-item-info"><div class="cart-item-name">'+item.name+'</div>'+(item.note?'<div class="cart-item-price" style="font-size:.75rem;color:var(--muted)">'+item.note+'</div>':'')+'<div class="cart-item-price">'+fmt(item.price)+' / Stück</div></div><div class="cart-item-controls"><button class="cart-qty-btn" onclick="cartQty('+i+',-1)">−</button><span class="cart-qty">'+item.qty+'</span><button class="cart-qty-btn" onclick="cartQty('+i+',1)">+</button></div><div class="cart-item-total">'+fmt(item.price*item.qty)+'</div>';
+    if(item._isCola){
+      div.innerHTML='<div class="cart-item-emoji" style="font-size:.85rem;font-weight:700;color:var(--muted);opacity:.6;width:40px;text-align:center;">🥤</div>'
+        +'<div class="cart-item-info"><div class="cart-item-name">'+item.name+'</div>'
+        +'<div class="cart-item-price" style="font-size:.75rem;color:var(--muted)">Automatisch hinzugefügt</div></div>'
+        +'<div style="margin-left:auto;display:flex;align-items:center;gap:8px;">'
+        +'<span style="background:#e8f5e9;color:#2e7d32;font-size:.72rem;font-weight:700;padding:3px 8px;border-radius:12px;">GRATIS</span>'
+        +'<div class="cart-item-total" style="color:#2e7d32;">0,00 €</div></div>';
+    } else {
+      div.innerHTML='<div class="cart-item-emoji" style="font-size:.85rem;font-weight:700;color:var(--muted);opacity:.6;width:40px;text-align:center;">'+item.num+'</div><div class="cart-item-info"><div class="cart-item-name">'+item.name+'</div>'+(item.note?'<div class="cart-item-price" style="font-size:.75rem;color:var(--muted)">'+item.note+'</div>':'')+'<div class="cart-item-price">'+fmt(item.price)+' / Stück</div></div><div class="cart-item-controls"><button class="cart-qty-btn" onclick="cartQty('+i+',-1)">−</button><span class="cart-qty">'+item.qty+'</span><button class="cart-qty-btn" onclick="cartQty('+i+',1)">+</button></div><div class="cart-item-total">'+fmt(item.price*item.qty)+'</div>';
+    }
     container.appendChild(div);
   });
   document.getElementById('subTotal').textContent=fmt(total);
   document.getElementById('grandTotal').textContent=fmt(total);
 }
-function cartQty(i,d){cart[i].qty+=d;if(cart[i].qty<=0)cart.splice(i,1);updateCartUI();}
+function cartQty(i,d){if(cart[i]&&cart[i]._isCola)return;cart[i].qty+=d;if(cart[i].qty<=0)cart.splice(i,1);updateCartUI();}
 function toggleCart(){
   const panel=document.getElementById('cartPanel');
   panel.classList.toggle('show');
@@ -2851,6 +2878,7 @@ function setMode(m){
   document.getElementById('addressFields').style.display=m==='lieferung'?'':'none';
   document.getElementById('coFeeRow').style.display=m==='lieferung'?'':'none';
   updateCoSummary();
+  updateCartUI();
 }
 
 function setPayment(p){
@@ -2962,7 +2990,7 @@ async function submitOrder(){
         street:coMode==='lieferung'?street:'',
         house:coMode==='lieferung'?house:'',
       },
-      items:cart.map(i=>({num:i.num||'',name:i.name,price:i.price,qty:i.qty,note:i.note||'',extraDetails:i.extraDetails||[]})),
+      items:cart.map(i=>({num:i._isCola?'':i.num||'',name:i.name,price:i.price,qty:i.qty,note:i._isCola?'gratis':i.note||'',extraDetails:i.extraDetails||[]})),
       subtotal, deliveryFee:fee, serviceFee, total,
       promoCode:(document.getElementById('coPromoCode')?.value||'').trim()||undefined,
       note:document.getElementById('coNote').value.trim(),
@@ -3016,7 +3044,7 @@ async function finishOrder({email, first, last, city, street, house}={}){
       street: coMode==='lieferung'?street:'',
       house: coMode==='lieferung'?house:'',
     },
-    items: cart.map(i=>({name:i.name,price:i.price,qty:i.qty,note:i.note||''})),
+    items: cart.map(i=>({name:i.name,price:i.price,qty:i.qty,note:i._isCola?'gratis':i.note||''})),
     subtotal, deliveryFee:fee, serviceFee, total,
     note: document.getElementById('coNote').value.trim(),
     promoCode:(document.getElementById('coPromoCode')?.value||'').trim()||undefined,
