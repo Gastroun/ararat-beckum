@@ -2767,8 +2767,9 @@ function addToCartFromPopup(){
 }
 // ── Cola-Dose Automatik ──────────────────────────────────────────
 function getColaThreshold(){
-  if(coMode==='lieferung') return 0;   // Lieferung: immer
-  return 25.00;                        // Abholung: ab 25 €
+  const city=(document.getElementById('coCity')?.value||'').trim();
+  if(coMode==='lieferung' && city==='Roland') return 30.00;
+  return 25.00; // Lieferung Beckum/default + Abholung
 }
 function syncColaDose(){
   const real=cart.filter(i=>!i._isCola);
@@ -2895,6 +2896,7 @@ function setPayment(p){
 }
 
 function onCityChange(){
+  updateCartUI();
   const city=document.getElementById('coCity').value;
   const notice=document.getElementById('deliveryNotice');
   if(city&&DELIVERY_CITIES[city]){
