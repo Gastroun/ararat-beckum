@@ -77,6 +77,11 @@ const orderSchema = new mongoose.Schema({
   note: String,
   prepTime: { type: Number, default: null },
   cancelReason: { type: String, default: '' },
+  promoCode: { type: String, default: '' },
+  rollnconeRaffleParticipant: { type: Boolean, default: false },
+  promotionCodeUsed: { type: String, default: '' },
+  participationTimestamp: { type: Date, default: null },
+  raffleEmailSent: { type: Boolean, default: false },
 }, { timestamps: true });
 
 const Order = mongoose.model('Order', orderSchema);
@@ -147,9 +152,38 @@ const availabilitySchema = new mongoose.Schema({
 }, { timestamps: true });
 const Availability = mongoose.model('Availability', availabilitySchema);
 
+// ─── ROLLNCONE GEWINNSPIEL ───────────────────────────────────────
+const ROLLNCONE_CODE  = 'ROLLNCONE';
+const ROLLNCONE_START = new Date('2026-04-29T00:00:00+02:00');
+const ROLLNCONE_END   = new Date('2026-05-29T23:59:59+02:00');
+
+function validateRollnconeCode(raw) {
+  const code = (raw || '').trim().toUpperCase();
+  if (code !== ROLLNCONE_CODE) return { valid: false, reason: 'invalid' };
+  const now = new Date();
+  if (now < ROLLNCONE_START) return { valid: false, reason: 'not_started' };
+  if (now > ROLLNCONE_END)   return { valid: false, reason: 'expired' };
+  return { valid: true };
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // PUBLIC ROUTES
 // ═══════════════════════════════════════════════════════════════════
+
+// ── Promo-Code validieren (PUBLIC) ────────────────────────────────
+app.post('/api/validate-promo-code', (req, res) => {
+  const { code } = req.body;
+  const result = validateRollnconeCode(code);
+  if (result.valid) {
+    return res.json({ valid: true, message: 'Gültiger Aktionscode! Du nimmst am Gewinnspiel teil.' });
+  }
+  const messages = {
+    invalid:     'Ungültiger Code.',
+    not_started: 'Die Aktion hat noch nicht begonnen.',
+    expired:     'Aktion abgelaufen (gültig 29.04.–29.05.2026).',
+  };
+  res.json({ valid: false, message: messages[result.reason] || 'Ungültiger Code.' });
+});
 
 // ── Health Check ──────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
@@ -189,12 +223,21 @@ app.get('/api/availability', async (req, res) => {
 app.post('/api/orders', async (req, res) => {
   try {
     const orderNum = await getNextOrderNum();
-    // Manuelle Admin-Bestellungen (source:'admin') direkt confirmen
     const isPOS = req.body.source === 'pos' || req.body.source === 'admin';
+
+    // Promo-Code verarbeiten
+    const promoRaw = req.body.promoCode || '';
+    const promoResult = promoRaw ? validateRollnconeCode(promoRaw) : null;
+    const isRaffle = promoResult?.valid === true;
+
     const order = new Order({
       ...req.body,
       orderNum,
-      status: isPOS ? 'confirmed' : 'pending'
+      status: isPOS ? 'confirmed' : 'pending',
+      promoCode: promoRaw.trim().toUpperCase() || undefined,
+      rollnconeRaffleParticipant: isRaffle,
+      promotionCodeUsed: isRaffle ? ROLLNCONE_CODE : undefined,
+      participationTimestamp: isRaffle ? new Date() : undefined,
     });
     await order.save();
 
@@ -202,6 +245,14 @@ app.post('/api/orders', async (req, res) => {
       await sendConfirmationEmail(order, order.prepTime || 20);
       await sendRestaurantEmail(order);
       await triggerPrint(order);
+    }
+
+    if (isRaffle) {
+      await sendRaffleEmail(order);
+      await Order.findByIdAndUpdate(order._id, { raffleEmailSent: true });
+      console.log(`🎉 Gewinnspiel-Teilnahme #${order.orderNum} registriert`);
+    } else if (promoRaw && !isRaffle) {
+      console.log(`⚠️  Ungültiger Promo-Code bei Bestellung #${orderNum}: "${promoRaw}" – Grund: ${promoResult?.reason}`);
     }
 
     res.status(201).json({ orderNum: order.orderNum, order });
@@ -214,7 +265,7 @@ app.post('/api/orders', async (req, res) => {
 // ── Stripe Checkout Session erstellen ─────────────────────────────
 app.post('/api/create-stripe-checkout', async (req, res) => {
   try {
-    const { items, subtotal, deliveryFee, serviceFee, total, customer, mode, note, ...rest } = req.body;
+    const { items, subtotal, deliveryFee, serviceFee, total, customer, mode, note, promoCode, ...rest } = req.body;
     const orderNum = await getNextOrderNum();
 
     // Stripe line items
@@ -274,12 +325,20 @@ app.post('/api/create-stripe-checkout', async (req, res) => {
     }
     const session = await getStripe().checkout.sessions.create(sessionOpts);
 
+    // Promo-Code auswerten
+    const promoResult = promoCode ? validateRollnconeCode(promoCode) : null;
+    const isRaffle = promoResult?.valid === true;
+
     // Pending order in DB – status 'awaiting_payment' bis Zahlung bestätigt
     const order = new Order({
       ...rest, items, subtotal, deliveryFee, serviceFee, total,
       customer, mode, note, orderNum,
       payment: 'stripe', paymentStatus: 'pending',
-      stripeSessionId: session.id, status: 'awaiting_payment'
+      stripeSessionId: session.id, status: 'awaiting_payment',
+      promoCode: promoCode ? promoCode.trim().toUpperCase() : undefined,
+      rollnconeRaffleParticipant: isRaffle,
+      promotionCodeUsed: isRaffle ? ROLLNCONE_CODE : undefined,
+      participationTimestamp: isRaffle ? new Date() : undefined,
     });
     await order.save();
 
@@ -313,6 +372,12 @@ app.post('/api/stripe-webhook', async (req, res) => {
         await order.save();
         // Kein E-Mail, kein Druck – erst nach Admin-Bestätigung
         console.log(`💳 Stripe Zahlung erhalten: Bestellung #${order.orderNum} → wartet auf Admin-Bestätigung`);
+        // Gewinnspiel-E-Mail direkt nach Zahlungseingang (einmalig)
+        if (order.rollnconeRaffleParticipant && !order.raffleEmailSent) {
+          await sendRaffleEmail(order);
+          await Order.findByIdAndUpdate(order._id, { raffleEmailSent: true });
+          console.log(`🎉 Gewinnspiel-E-Mail (Stripe) an #${order.orderNum} gesendet`);
+        }
       }
     } catch (err) {
       console.error('Webhook processing error:', err);
@@ -346,6 +411,10 @@ app.post('/api/verify-payment', async (req, res) => {
     if (session.payment_intent) order.stripePaymentIntentId = session.payment_intent;
     await order.save();
     console.log(`💳 verify-payment: Bestellung #${order.orderNum} → pending`);
+    if (order.rollnconeRaffleParticipant && !order.raffleEmailSent) {
+      await sendRaffleEmail(order);
+      await Order.findByIdAndUpdate(order._id, { raffleEmailSent: true });
+    }
     res.json({ success: true, orderNum: order.orderNum });
   } catch (err) {
     console.error('verify-payment Fehler:', err);
@@ -742,6 +811,45 @@ async function sendCancellationEmail(order, cancelReason, refundStatus) {
     });
   } catch (err) {
     console.error('E-Mail Fehler (Storno):', err);
+  }
+}
+
+async function sendRaffleEmail(order) {
+  if (!order.customer?.email) return;
+  try {
+    const customerName = order.customer.first || 'Kunde';
+    await getResend()?.emails.send({
+      from: process.env.EMAIL_FROM || 'bestellungen@ararat-grill.de',
+      to: order.customer.email,
+      bcc: 'abed.fa@web.de',
+      subject: 'Teilnahme an Gewinnspiel Rollncone',
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;background:#fff;">
+          <div style="background:#3d1a08;color:#fff;padding:24px;text-align:center;">
+            <h1 style="margin:0;font-size:24px;">🔥 Ararat Grill</h1>
+            <p style="margin:4px 0 0;opacity:.8;font-size:14px;">Beckum · Nordwall 45</p>
+          </div>
+          <div style="padding:28px 24px;">
+            <h2 style="color:#3d1a08;">🎉 Du bist dabei!</h2>
+            <p>Hallo <strong>${customerName}</strong>,</p>
+            <p>vielen Dank für deine Bestellung mit dem Aktionscode <strong>ROLLNCONE</strong> – deine Teilnahme am Gewinnspiel ist erfolgreich registriert!</p>
+            <div style="background:#fff3ea;border-left:4px solid #c0281a;border-radius:6px;padding:16px 20px;margin:20px 0;">
+              <p style="margin:0 0 6px;font-weight:bold;color:#3d1a08;">Aktionszeitraum</p>
+              <p style="margin:0;font-size:15px;">29.04.2026 – 29.05.2026</p>
+            </div>
+            <p>Nach Ende des Aktionszeitraums wird der Gewinner ausgelost und direkt benachrichtigt.</p>
+            <p>Viel Glück! 🍀</p>
+            <p style="color:#666;font-size:13px;">Deine Bestellnummer: <strong>#${order.orderNum}</strong></p>
+          </div>
+          <div style="background:#f7f3ee;padding:16px 24px;text-align:center;font-size:12px;color:#999;">
+            Ararat Grill · Nordwall 45 · 59269 Beckum · Tel: 02521-9009414
+          </div>
+        </div>`,
+      text: `Hallo ${customerName},\n\nvielen Dank für deine Bestellung mit dem Aktionscode ROLLNCONE – deine Teilnahme am Gewinnspiel ist erfolgreich registriert!\n\nAktionszeitraum: 29.04.2026 – 29.05.2026\n\nNach Ende des Aktionszeitraums wird der Gewinner ausgelost und direkt benachrichtigt.\n\nViel Glück!\n\nDeine Bestellnummer: #${order.orderNum}\n\nArarat Grill · Nordwall 45 · 59269 Beckum`,
+    });
+    console.log(`🎉 Gewinnspiel-E-Mail gesendet an ${order.customer.email}`);
+  } catch (err) {
+    console.error('Gewinnspiel-E-Mail Fehler:', err);
   }
 }
 
