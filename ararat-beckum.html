@@ -2074,6 +2074,22 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);}
         <textarea class="co-input" id="coNote" rows="3" placeholder="z.B. kein Zwiebeln, 3. Etage..."></textarea>
       </div>
 
+      <!-- Gutscheincode / Gewinnspielcode -->
+      <div class="co-section">
+        <div class="co-section-title">🎟️ Gutschein- / Gewinnspielcode (optional)</div>
+        <div style="display:flex;gap:8px;align-items:flex-start;">
+          <input class="co-input" id="coPromoCode" type="text" placeholder="Code eingeben…"
+            style="flex:1;text-transform:uppercase;letter-spacing:.08em;"
+            oninput="this.value=this.value.toUpperCase()"
+            onblur="validatePromoCodeLive()">
+          <button type="button" onclick="validatePromoCodeLive()" id="coPromoBtn"
+            style="padding:0 16px;height:44px;background:var(--red);color:#fff;border:none;border-radius:8px;font-size:.9rem;cursor:pointer;white-space:nowrap;flex-shrink:0;">
+            Prüfen
+          </button>
+        </div>
+        <div id="coPromoFeedback" style="margin-top:6px;font-size:.82rem;display:none;padding:8px 12px;border-radius:6px;"></div>
+      </div>
+
       <!-- Summary -->
       <div class="co-section">
         <div class="co-section-title">🧾 Preisübersicht</div>
@@ -2948,6 +2964,7 @@ async function submitOrder(){
       },
       items:cart.map(i=>({num:i.num||'',name:i.name,price:i.price,qty:i.qty,note:i.note||'',extraDetails:i.extraDetails||[]})),
       subtotal, deliveryFee:fee, serviceFee, total,
+      promoCode:(document.getElementById('coPromoCode')?.value||'').trim()||undefined,
       note:document.getElementById('coNote').value.trim(),
     };
     try{
@@ -3002,6 +3019,7 @@ async function finishOrder({email, first, last, city, street, house}={}){
     items: cart.map(i=>({name:i.name,price:i.price,qty:i.qty,note:i.note||''})),
     subtotal, deliveryFee:fee, serviceFee, total,
     note: document.getElementById('coNote').value.trim(),
+    promoCode:(document.getElementById('coPromoCode')?.value||'').trim()||undefined,
   };
 
   try{
@@ -3086,6 +3104,37 @@ function pollOrderConfirmation(orderId, firstName, email, mode){
 
 function placeOrder(){openCheckout();}
 function closeOrderModal(){closeCheckout();}
+
+// ── Promo-Code Live-Validierung ──────────────────────────────────
+let promoValidated = false;
+async function validatePromoCodeLive() {
+  const input = document.getElementById('coPromoCode');
+  const fb    = document.getElementById('coPromoFeedback');
+  const code  = (input.value || '').trim();
+  if (!code) { fb.style.display='none'; promoValidated=false; return; }
+  fb.style.display='block';
+  fb.style.background='#f7f3ee';
+  fb.style.color='#666';
+  fb.textContent='Wird geprüft…';
+  try {
+    const res  = await fetch(API_BASE+'/validate-promo-code',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code})});
+    const data = await res.json();
+    if (data.valid) {
+      fb.style.background='#e8f5e9'; fb.style.color='#2e7d32';
+      fb.style.border='1px solid #a5d6a7';
+      fb.textContent='✅ '+data.message;
+      promoValidated=true;
+    } else {
+      fb.style.background='#ffebee'; fb.style.color='#c62828';
+      fb.style.border='1px solid #ef9a9a';
+      fb.textContent='❌ '+data.message;
+      promoValidated=false;
+    }
+  } catch(e) {
+    fb.style.display='none'; promoValidated=false;
+  }
+}
+
 function showToast(msg){
   const t=document.getElementById('toast');
   document.getElementById('toastMsg').textContent=msg;
