@@ -2682,6 +2682,16 @@ function calcTotal(){
 
 let maxFreeClickOrder = []; // tracks click order for maxFree groups: [{gi, oi}]
 
+function lockScroll(){
+  const sw = window.innerWidth - document.documentElement.clientWidth;
+  if(sw > 0) document.body.style.paddingRight = sw + 'px';
+  document.body.style.overflow = 'hidden';
+}
+function unlockScroll(){
+  document.body.style.paddingRight = '';
+  document.body.style.overflow = '';
+}
+
 function openPopup(cat,idx){
   currentItem={...MENU[cat][idx]};
   popupQty=1; extraPrice=0;
@@ -2709,13 +2719,13 @@ function openPopup(cat,idx){
   document.getElementById('popupOptions').innerHTML = allergenSection + (config ? renderOptions(config) : '');
   document.getElementById('itemPopup').classList.add('show');
   document.getElementById('overlay').classList.add('show');
-  document.body.style.overflow='hidden';
+  lockScroll();
 }
 function closePopup(){
   document.getElementById('itemPopup').classList.remove('show');
   if(!document.getElementById('cartPanel').classList.contains('show')){
     document.getElementById('overlay').classList.remove('show');
-    document.body.style.overflow='';
+    unlockScroll();
   }
   currentItem=null;
 }
@@ -2818,7 +2828,7 @@ function toggleCart(){
   const panel=document.getElementById('cartPanel');
   panel.classList.toggle('show');
   document.getElementById('overlay').classList.toggle('show');
-  document.body.style.overflow=panel.classList.contains('show')?'hidden':'';
+  if(panel.classList.contains('show')) lockScroll(); else unlockScroll();
 }
 // ===== CHECKOUT =====
 const API_BASE = 'https://ararat-beckum-nfww.onrender.com/api';
@@ -2843,7 +2853,6 @@ function initStripe(){
 function openCheckout(){
   document.getElementById('cartPanel').classList.remove('show');
   document.getElementById('overlay').classList.remove('show');
-  document.body.style.overflow='';
   document.getElementById('coForm').style.display='';
   document.getElementById('coConfirm').style.display='none';
   coMode='lieferung'; coPayment='bar';
@@ -2862,12 +2871,12 @@ function openCheckout(){
   updateCoSummary();
   document.getElementById('coOverlay').classList.add('show');
   document.getElementById('checkoutModal').classList.add('show');
-  document.body.style.overflow='hidden';
+  lockScroll();
 }
 function closeCheckout(){
   document.getElementById('coOverlay').classList.remove('show');
   document.getElementById('checkoutModal').classList.remove('show');
-  document.body.style.overflow='';
+  unlockScroll();
 }
 function closeCheckoutConfirm(){closeCheckout();cart=[];updateCartUI();}
 
@@ -3346,14 +3355,14 @@ function openLegal(page){
   document.getElementById('legalTitle').textContent = data.title;
   document.getElementById('legalBody').innerHTML = data.body;
   document.getElementById('legalOverlay').classList.add('show');
-  document.body.style.overflow='hidden';
+  lockScroll();
 }
 function closeLegal(e){
   if(e.target === document.getElementById('legalOverlay')) closeLegalDirect();
 }
 function closeLegalDirect(){
   document.getElementById('legalOverlay').classList.remove('show');
-  document.body.style.overflow='';
+  unlockScroll();
 }
 </script>
 
