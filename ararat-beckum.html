@@ -321,6 +321,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);}
   </div>
 </header>
 
+<div id="gratisGetraenkBanner" style="background:linear-gradient(135deg,#8b0000,#b71c1c);color:#fff;text-align:center;padding:13px 20px;font-size:14px;font-weight:bold;line-height:1.7;position:sticky;top:63px;z-index:95;display:none;">
+  🥤 <span style="font-size:16px;">Gratis-Getränk bei jeder Bestellung ab 25 €!</span> 🥤<br>
+  <span style="font-size:12px;opacity:.9;font-weight:normal;">1. – 31. Mai · Cola · Cola Zero · Mezzo Mix · Fanta · Sprite · Uludag · Ayran · Mineralwasser</span>
+</div>
+<script>if(typeof isAktionActive==='function'&&isAktionActive())document.getElementById('gratisGetraenkBanner').style.display='block';<\/script>
+
 <section class="hero">
   <div class="hero-inner">
     <h1>Ararat <span>Grill</span></h1>
@@ -1937,6 +1943,17 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);}
   </div>
 </footer>
 
+<!-- Gratis-Getränk Auswahl Modal -->
+<div id="drinkPickerOverlay" onclick="closeDrinkPicker()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1100;"></div>
+<div id="drinkPickerModal" style="display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:#fff;border-radius:18px;padding:26px 22px;z-index:1101;width:min(360px,92vw);box-shadow:0 24px 60px rgba(0,0,0,.35);">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+    <h3 style="margin:0;font-size:1.15rem;font-weight:800;">🥤 Gratis-Getränk wählen</h3>
+    <button onclick="closeDrinkPicker()" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:#666;line-height:1;">✕</button>
+  </div>
+  <p style="font-size:.83rem;color:#888;margin:0 0 14px;">Wähle dein kostenloses Getränk (0,33l) – Gratis ab 25 € Bestellwert:</p>
+  <div id="drinkOptions" style="display:flex;flex-direction:column;gap:8px;"></div>
+</div>
+
 <div class="overlay" id="overlay" onclick="overlayClick()"></div>
 
 <div class="item-popup" id="itemPopup">
@@ -2820,21 +2837,61 @@ function addToCartFromPopup(){
   showToast(addedName+' hinzugefügt ✓');
 }
 // ── Cola-Dose Automatik ──────────────────────────────────────────
+function isAktionActive(){
+  const d=new Date();
+  return d.getMonth()===4; // Mai (0-basiert: 4=Mai), läuft 1.05 – 31.05
+}
 function getColaThreshold(){
   const city=(document.getElementById('coCity')?.value||'').trim();
   if(coMode==='lieferung' && city==='Roland') return 30.00;
   return 25.00; // Lieferung Beckum/default + Abholung
 }
 function syncColaDose(){
+  if(!isAktionActive()){
+    const idx=cart.findIndex(i=>i._isCola);
+    if(idx>=0)cart.splice(idx,1);
+    return;
+  }
   const real=cart.filter(i=>!i._isCola);
   const realSubtotal=real.reduce((s,c)=>s+c.price*c.qty,0);
   const shouldAdd=real.length>0 && realSubtotal>=getColaThreshold();
   const idx=cart.findIndex(i=>i._isCola);
   if(shouldAdd && idx<0){
-    cart.push({_isCola:true,num:'🥤',name:'Cola-Dose (gratis)',price:0,qty:1,note:'Automatisch hinzugefügt'});
+    cart.push({_isCola:true,num:'🥤',name:'',price:0,qty:1,note:'gratis',_drinkChosen:false});
   } else if(!shouldAdd && idx>=0){
     cart.splice(idx,1);
   }
+}
+
+// ── Gratis-Getränk Auswahl ───────────────────────────────────────
+const GRATIS_GETRAENKE=['Cola','Cola Zero','Mezzo Mix','Fanta','Sprite','Uludag Türkische Brause','Ayran (Joghurtgetränk)','Mineralwasser'];
+function openDrinkPicker(){
+  const modal=document.getElementById('drinkPickerModal');
+  const overlay=document.getElementById('drinkPickerOverlay');
+  const opts=document.getElementById('drinkOptions');
+  opts.innerHTML='';
+  GRATIS_GETRAENKE.forEach(n=>{
+    const btn=document.createElement('button');
+    btn.style.cssText='width:100%;background:#fff;border:2px solid #e8e8e8;border-radius:10px;padding:11px 15px;text-align:left;cursor:pointer;font-size:.93rem;font-weight:500;transition:border-color .15s,background .15s;';
+    btn.textContent='🥤 '+n;
+    btn.onmouseover=()=>{btn.style.borderColor='#b71c1c';btn.style.background='#fff5f5';};
+    btn.onmouseout=()=>{btn.style.borderColor='#e8e8e8';btn.style.background='#fff';};
+    btn.onclick=()=>chooseDrink(n);
+    opts.appendChild(btn);
+  });
+  modal.style.display='block';
+  overlay.style.display='block';
+}
+function closeDrinkPicker(){
+  document.getElementById('drinkPickerModal').style.display='none';
+  document.getElementById('drinkPickerOverlay').style.display='none';
+}
+function chooseDrink(n){
+  const idx=cart.findIndex(i=>i._isCola);
+  if(idx>=0){cart[idx].name=n+' (GRATIS)';cart[idx]._drinkChosen=true;}
+  closeDrinkPicker();
+  updateCartUI();
+  showToast(n+' ausgewählt ✓');
 }
 
 function updateCartUI(){
@@ -2853,9 +2910,13 @@ function updateCartUI(){
   cart.forEach((item,i)=>{
     const div=document.createElement('div');div.className='cart-item';
     if(item._isCola){
+      div.style.cursor='pointer';
+      div.onclick=openDrinkPicker;
+      const nameDisplay=item._drinkChosen?item.name:'👆 Getränk auswählen';
+      const subDisplay=item._drinkChosen?'Gratis ab 25 € – tippen zum Ändern':'Tippe hier, um dein Gratis-Getränk zu wählen';
       div.innerHTML='<div class="cart-item-emoji" style="font-size:.85rem;font-weight:700;color:var(--muted);opacity:.6;width:40px;text-align:center;">🥤</div>'
-        +'<div class="cart-item-info"><div class="cart-item-name">'+item.name+'</div>'
-        +'<div class="cart-item-price" style="font-size:.75rem;color:var(--muted)">Automatisch hinzugefügt</div></div>'
+        +'<div class="cart-item-info"><div class="cart-item-name" style="'+(item._drinkChosen?'':'color:#b71c1c;font-weight:700;')+'">'+ nameDisplay+'</div>'
+        +'<div class="cart-item-price" style="font-size:.75rem;color:var(--muted)">'+subDisplay+'</div></div>'
         +'<div style="margin-left:auto;display:flex;align-items:center;gap:8px;">'
         +'<span style="background:#e8f5e9;color:#2e7d32;font-size:.72rem;font-weight:700;padding:3px 8px;border-radius:12px;">GRATIS</span>'
         +'<div class="cart-item-total" style="color:#2e7d32;">0,00 €</div></div>';
@@ -2895,6 +2956,8 @@ function initStripe(){
 }
 
 function openCheckout(){
+  const freeDrink=cart.find(i=>i._isCola&&!i._drinkChosen);
+  if(freeDrink){openDrinkPicker();showToast('Bitte wähle zuerst dein Gratis-Getränk 🥤');return;}
   document.getElementById('cartPanel').classList.remove('show');
   document.getElementById('overlay').classList.remove('show');
   document.getElementById('coForm').style.display='';
@@ -3601,6 +3664,7 @@ function startSync(){
 }
 
 document.addEventListener('DOMContentLoaded', function(){
+  if(isAktionActive())document.getElementById('gratisGetraenkBanner').style.display='block';
   // Stripe-Rückkehr erkennen und Zahlung bestätigen
   const urlParams = new URLSearchParams(window.location.search);
   const stripeSessionId = urlParams.get('session_id');
