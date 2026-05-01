@@ -287,9 +287,10 @@ html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);colo
 
 /* PRINT */
 @media print{
+  @page{size:80mm auto;margin:0mm;}
   body *{visibility:hidden;}
   #printArea,#printArea *{visibility:visible;}
-  #printArea{position:fixed;left:0;top:0;width:100%;}
+  #printArea{position:fixed;left:0;top:0;width:80mm;}
 }
 
 @media(max-width:900px){
@@ -1431,14 +1432,14 @@ async function rawbtPrint(order) {
 }
 
 async function smartPrint(order) {
-  // 1. RawBT HTTP API (ESC/POS – korrekte Thermodruck-Qualität)
-  const ok = await rawbtPrint(order);
-  if (ok) return;
-  // 2. Fully Kiosk Browser (HTML-Druck, Android-Fallback)
+  // 1. Fully Kiosk Browser (direkte Methode – wie Amoura)
   if (window.fully) {
     fullyPrint(order);
     return;
   }
+  // 2. RawBT HTTP API (ESC/POS – korrekte Thermodruck-Qualität)
+  const ok = await rawbtPrint(order);
+  if (ok) return;
   // 3. Fallback: Browser-Popup
   doBrowserPrint(order);
 }
@@ -1449,7 +1450,8 @@ function fullyPrint(order) {
   printArea.innerHTML = bonHtml;
   printArea.style.display = 'block';
   setTimeout(() => {
-    try { window.fully.print(); } catch(e) { window.print(); }
+    window.print();
+    try { window.fully.printWebView(); } catch(e) {}
     setTimeout(() => {
       printArea.innerHTML = '';
       printArea.style.display = 'none';
