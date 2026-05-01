@@ -288,9 +288,10 @@ html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);colo
 /* PRINT */
 @media print{
   @page{size:80mm auto;margin:0mm;}
+  html,body{background:white!important;color:black!important;}
   body *{visibility:hidden;}
   #printArea,#printArea *{visibility:visible;}
-  #printArea{position:fixed;left:0;top:0;width:80mm;}
+  #printArea{position:fixed;left:0;top:0;width:80mm;font-family:monospace;font-size:11px;background:white;color:black;}
 }
 
 @media(max-width:900px){
