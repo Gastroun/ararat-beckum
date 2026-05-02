@@ -1079,7 +1079,7 @@ cron.schedule('59 23 * * 0', async () => {
     const rechnungPdf = await generatePdf(doc => {
       const W = 495;
       doc.rect(0, 0, 595, 70).fill('#1a1a2e');
-      doc.fontSize(22).font('Helvetica-Bold').fillColor('#fff').text('FlueVate', 50, 20);
+      doc.fontSize(22).font('Helvetica-Bold').fillColor('#fff').text('Abed Rachman Falah', 50, 20);
       doc.fontSize(10).font('Helvetica').fillColor('rgba(255,255,255,0.7)').text('Online-Bestellsystem · Abrechnung', 50, 46);
 
       doc.moveDown(3).fontSize(16).font('Helvetica-Bold').fillColor('#1a1a2e').text(`RECHNUNG ${rechnungNr}`);
@@ -1088,7 +1088,7 @@ cron.schedule('59 23 * * 0', async () => {
 
       const addrY = doc.y;
       doc.fontSize(8).fillColor('#999').text('RECHNUNGSSTELLER', 50, addrY);
-      doc.fontSize(11).font('Helvetica-Bold').fillColor('#222').text('Abed Rachman Falah / FlueVate', 50, addrY+14);
+      doc.fontSize(11).font('Helvetica-Bold').fillColor('#222').text('Abed Rachman Falah', 50, addrY+14);
       doc.fontSize(10).font('Helvetica').fillColor('#555')
         .text('Zur Goldbrede 30', 50, addrY+30)
         .text('59269 Beckum', 50, addrY+44)
@@ -1148,7 +1148,7 @@ cron.schedule('59 23 * * 0', async () => {
       doc.moveDown(2);
 
       doc.fontSize(8).fillColor('#aaa')
-        .text(`FlueVate · Abed Rachman Falah · Zur Goldbrede 30 · 59269 Beckum  ·  ${rechnungNr} · KW ${kw}/${now.getFullYear()}`, 50, 780, { width: W, align: 'center' });
+        .text(`Abed Rachman Falah · Zur Goldbrede 30 · 59269 Beckum  ·  ${rechnungNr} · KW ${kw}/${now.getFullYear()}`, 50, 780, { width: W, align: 'center' });
     });
 
     const berichtPdf = await generatePdf(doc => {
@@ -1165,7 +1165,7 @@ cron.schedule('59 23 * * 0', async () => {
         ['davon Online', `${web}`, true],
         ['davon Telefon / POS', `${pos}`, false],
         ['Gesamtumsatz (Brutto)', `${brutto.toFixed(2).replace('.',',')} €`, true],
-        ['Einbehaltene Gebühren (FlueVate)', `− ${meinBetrag.toFixed(2).replace('.',',')} €`, false],
+        ['Einbehaltene Gebühren (A. R. Falah)', `− ${meinBetrag.toFixed(2).replace('.',',')} €`, false],
       ];
       rows.forEach(([lbl, value, shade]) => {
         const rowY = doc.y;
@@ -1206,7 +1206,7 @@ cron.schedule('59 23 * * 0', async () => {
               <tr><td style="padding:8px">davon Online</td><td style="padding:8px;text-align:right">${web}</td></tr>
               <tr style="background:#f5f5f5"><td style="padding:8px">davon Telefon / POS</td><td style="padding:8px;text-align:right">${pos}</td></tr>
               <tr><td style="padding:8px">Gesamtumsatz (Brutto)</td><td style="padding:8px;text-align:right">${brutto.toFixed(2).replace('.',',')} €</td></tr>
-              <tr style="background:#f5f5f5"><td style="padding:8px">Einbehaltene Gebühren (FlueVate)</td><td style="padding:8px;text-align:right">− ${meinBetrag.toFixed(2).replace('.',',')} €</td></tr>
+              <tr style="background:#f5f5f5"><td style="padding:8px">Einbehaltene Gebühren (A. R. Falah)</td><td style="padding:8px;text-align:right">− ${meinBetrag.toFixed(2).replace('.',',')} €</td></tr>
               <tr style="background:#e8f5e9"><td style="padding:10px;font-weight:bold;color:#2e7d32;font-size:15px">Ihr Auszahlungsbetrag</td><td style="padding:10px;text-align:right;font-weight:bold;color:#2e7d32;font-size:15px">${auszahlung.toFixed(2).replace('.',',')} €</td></tr>
             </table>
             <p style="font-size:11px;color:#aaa;margin-top:8px">* Auszahlung erfolgt automatisch über Stripe Connect.</p>
@@ -1223,7 +1223,7 @@ cron.schedule('59 23 * * 0', async () => {
         html: `<p style="font-family:Arial,sans-serif;color:#555">Anbei die Rechnung <b>${rechnungNr}</b> sowie der Wochenbericht KW ${kw} / ${now.getFullYear()} für Ararat Grill Beckum.</p>
                <p style="font-family:Arial,sans-serif;color:#555"><b>Zeitraum:</b> ${vonBis}<br><b>Dein Verdienst:</b> ${meinBetrag.toFixed(2).replace('.',',')} €</p>`,
         attachments: [
-          { filename: `${rechnungNr}_FlueVate_Rechnung.pdf`, content: rechnungPdf.toString('base64') },
+          { filename: `${rechnungNr}_ARF_Rechnung.pdf`, content: rechnungPdf.toString('base64') },
           { filename: `KW${kw}_${now.getFullYear()}_Ararat_Wochenbericht.pdf`, content: berichtPdf.toString('base64') },
         ],
       });
@@ -1264,7 +1264,7 @@ cron.schedule('58 23 * * *', async () => {
     const monatsPdf = await generatePdf(doc => {
       const W = 495;
       doc.rect(0, 0, 595, 70).fill('#1a1a2e');
-      doc.fontSize(22).font('Helvetica-Bold').fillColor('#fff').text('FlueVate', 50, 20);
+      doc.fontSize(22).font('Helvetica-Bold').fillColor('#fff').text('Abed Rachman Falah', 50, 20);
       doc.fontSize(10).font('Helvetica').fillColor('rgba(255,255,255,0.7)').text(`Monatsbericht · ${monat}`, 50, 46);
 
       doc.moveDown(3.5).fontSize(16).font('Helvetica-Bold').fillColor('#1a1a2e').text(`MONATSABRECHNUNG ${rechnungNr}`);
@@ -1273,7 +1273,7 @@ cron.schedule('58 23 * * *', async () => {
 
       const addrY = doc.y;
       doc.fontSize(8).fillColor('#999').text('RECHNUNGSSTELLER', 50, addrY);
-      doc.fontSize(11).font('Helvetica-Bold').fillColor('#222').text('Abed Rachman Falah / FlueVate', 50, addrY+14);
+      doc.fontSize(11).font('Helvetica-Bold').fillColor('#222').text('Abed Rachman Falah', 50, addrY+14);
       doc.fontSize(10).font('Helvetica').fillColor('#555')
         .text('Zur Goldbrede 30', 50, addrY+30)
         .text('59269 Beckum', 50, addrY+44)
@@ -1339,7 +1339,7 @@ cron.schedule('58 23 * * *', async () => {
         ['davon Online', `${web}`, true],
         ['davon Telefon / POS', `${pos}`, false],
         ['Gesamtumsatz (Brutto)', `${brutto.toFixed(2).replace('.',',')} €`, true],
-        ['Einbehaltene Gebühren (FlueVate)', `− ${meinBetrag.toFixed(2).replace('.',',')} €`, false],
+        ['Einbehaltene Gebühren (A. R. Falah)', `− ${meinBetrag.toFixed(2).replace('.',',')} €`, false],
         ['Auszahlung an Restaurant', `${auszahlung.toFixed(2).replace('.',',')} €`, true],
       ];
       rows.forEach(([lbl, value, shade]) => {
@@ -1351,7 +1351,7 @@ cron.schedule('58 23 * * *', async () => {
       });
 
       doc.fontSize(8).fillColor('#aaa')
-        .text(`FlueVate · Abed Rachman Falah · Zur Goldbrede 30 · 59269 Beckum  ·  ${rechnungNr} · ${monat}`, 50, 780, { width: W, align: 'center' });
+        .text(`Abed Rachman Falah · Zur Goldbrede 30 · 59269 Beckum  ·  ${rechnungNr} · ${monat}`, 50, 780, { width: W, align: 'center' });
 
       // ── Seite 2+: Einzelne Bestellungen ───────────────────────────
       doc.addPage();
@@ -1439,7 +1439,7 @@ cron.schedule('58 23 * * *', async () => {
         subject: `📅 Monatsbericht ${monat} · Ararat Grill Beckum`,
         html: `<p style="font-family:Arial,sans-serif;color:#555">Anbei der Monatsbericht <b>${monat}</b> für Ararat Grill Beckum.<br><b>Dein Verdienst:</b> ${meinBetrag.toFixed(2).replace('.',',')} €</p>`,
         attachments: [
-          { filename: `${rechnungNr}_FlueVate_Monatsbericht_${monat.replace(' ','_')}.pdf`, content: monatsPdf.toString('base64') },
+          { filename: `${rechnungNr}_ARF_Monatsbericht_${monat.replace(' ','_')}.pdf`, content: monatsPdf.toString('base64') },
         ],
       });
     }
