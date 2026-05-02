@@ -2421,7 +2421,9 @@ const SALAT = {type:'checkbox',title:'Salat auswählen',options:[
   {label:'Gurke'},{label:'Weißkohl'},{label:'Rotkohl'},{label:'Zwiebeln'},{label:'Tomate'},{label:'Eisbergsalat'}
 ]};
 const SOSSE = {type:'radio',title:'Soße auswählen',required:true,options:[
-  {label:'Soße scharf'},{label:'Joghurtsoße'},{label:'Cocktailsoße'},{label:'Tzatziki'},{label:'Ohne Soße'}
+  {label:'Soße scharf'},{label:'Joghurtsoße'},{label:'Cocktailsoße'},{label:'Tzatziki'},
+  {label:'Kräuterbutter'},{label:'Sauce Hollandaise'},{label:'Spezialsauce'},
+  {label:'Jägersauce'},{label:'Currysauce'},{label:'Ohne Soße'}
 ]};
 const KAESE_EXTRA = {type:'checkbox',title:'Extras (optional)',options:[
   {label:'Käse',extra:1}
@@ -2442,7 +2444,9 @@ const PIZZA_SAUCE = {type:'checkbox',title:'Sonderwunsch – Sauce ändern (opti
 ]};
 const PIZZA_CONFIG = [PIZZA_SAUCE, PIZZA_EXTRAS];
 const SEELE_SOSSE = {type:'radio',title:'Soße auswählen',required:true,options:[
-  {label:'Tzatziki'},{label:'Scharfe Soße'},{label:'Cocktailsoße'},{label:'Joghurtsoße'},{label:'Ohne Dressing'}
+  {label:'Soße scharf'},{label:'Joghurtsoße'},{label:'Cocktailsoße'},{label:'Tzatziki'},
+  {label:'Kräuterbutter'},{label:'Sauce Hollandaise'},{label:'Spezialsauce'},
+  {label:'Jägersauce'},{label:'Currysauce'},{label:'Ohne Dressing'}
 ]};
 
 const POPUP_CONFIG = {
@@ -2475,8 +2479,9 @@ const POPUP_CONFIG = {
   'Falafel Rolle':      [SALAT, SOSSE, KAESE_EXTRA],
   'Falafel Teller':     [BEILAGE, SOSSE],
   'Döner Teller':       [FLEISCH, BEILAGE, SOSSE],
-  'Iskender Kebab':     [FLEISCH],
-  'Saray Döner':        [FLEISCH],
+  'Holländischer Dönerteller': [FLEISCH, BEILAGE, SOSSE],
+  'Iskender Kebab':     [FLEISCH, SOSSE],
+  'Saray Döner':        [FLEISCH, SOSSE],
   // Pizza
   'Pizza Cipolla':      PIZZA_CONFIG,
   'Pizza Prosciutto':   PIZZA_CONFIG,
@@ -2572,15 +2577,15 @@ const POPUP_CONFIG = {
   'Kuzu Sis':    [BEILAGE, SOSSE],
   'Pirzola':     [BEILAGE, SOSSE],
   // Salate
-  'Gemischter Salat':    [{type:'radio',title:'Soße auswählen',required:true,options:[{label:'Tzatziki'},{label:'Scharfe Soße'},{label:'Cocktailsoße'},{label:'Ohne Dressing'},{label:'Joghurtsauce'}]}],
-  'Bauernsalat':         [{type:'radio',title:'Soße auswählen',required:true,options:[{label:'Tzatziki'},{label:'Scharfe Soße'},{label:'Cocktailsoße'},{label:'Ohne Dressing'},{label:'Joghurtsauce'}]}],
-  'Döner-Salat':         [{type:'radio',title:'Soße auswählen',required:true,options:[{label:'Tzatziki'},{label:'Scharfe Soße'},{label:'Cocktailsoße'},{label:'Ohne Dressing'},{label:'Joghurtsauce'}]}],
-  'Ararat-Salat':        [{type:'radio',title:'Soße auswählen',required:true,options:[{label:'Tzatziki'},{label:'Scharfe Soße'},{label:'Cocktailsoße'},{label:'Ohne Dressing'},{label:'Joghurtsauce'}]}],
-  'Thunfischsalat':      [{type:'radio',title:'Soße auswählen',required:true,options:[{label:'Tzatziki'},{label:'Scharfe Soße'},{label:'Cocktailsoße'},{label:'Ohne Dressing'},{label:'Joghurtsauce'}]}],
-  'Hawaiisalat':         [{type:'radio',title:'Soße auswählen',required:true,options:[{label:'Tzatziki'},{label:'Scharfe Soße'},{label:'Cocktailsoße'},{label:'Ohne Dressing'},{label:'Joghurtsauce'}]}],
-  'Mozzarella-Salat':    [{type:'radio',title:'Soße auswählen',required:true,options:[{label:'Tzatziki'},{label:'Scharfe Soße'},{label:'Cocktailsoße'},{label:'Ohne Dressing'},{label:'Joghurtsauce'}]}],
-  'Hähnchenbrust Salat': [{type:'radio',title:'Soße auswählen',required:true,options:[{label:'Tzatziki'},{label:'Scharfe Soße'},{label:'Cocktailsoße'},{label:'Ohne Dressing'},{label:'Joghurtsauce'}]}],
-  'Lachs Salat':         [{type:'radio',title:'Soße auswählen',required:true,options:[{label:'Tzatziki'},{label:'Scharfe Soße'},{label:'Cocktailsoße'},{label:'Ohne Dressing'},{label:'Joghurtsauce'}]}],
+  'Gemischter Salat':    [{type:'radio',title:'Soße auswählen',required:true,options:[{label:'Soße scharf'},{label:'Joghurtsoße'},{label:'Cocktailsoße'},{label:'Tzatziki'},{label:'Kräuterbutter'},{label:'Sauce Hollandaise'},{label:'Spezialsauce'},{label:'Jägersauce'},{label:'Currysauce'},{label:'Ohne Dressing'}]}],
+  'Bauernsalat':         [{type:'radio',title:'Soße auswählen',required:true,options:[{label:'Soße scharf'},{label:'Joghurtsoße'},{label:'Cocktailsoße'},{label:'Tzatziki'},{label:'Kräuterbutter'},{label:'Sauce Hollandaise'},{label:'Spezialsauce'},{label:'Jägersauce'},{label:'Currysauce'},{label:'Ohne Dressing'}]}],
+  'Döner-Salat':         [{type:'radio',title:'Soße auswählen',required:true,options:[{label:'Soße scharf'},{label:'Joghurtsoße'},{label:'Cocktailsoße'},{label:'Tzatziki'},{label:'Kräuterbutter'},{label:'Sauce Hollandaise'},{label:'Spezialsauce'},{label:'Jägersauce'},{label:'Currysauce'},{label:'Ohne Dressing'}]}],
+  'Ararat-Salat':        [{type:'radio',title:'Soße auswählen',required:true,options:[{label:'Soße scharf'},{label:'Joghurtsoße'},{label:'Cocktailsoße'},{label:'Tzatziki'},{label:'Kräuterbutter'},{label:'Sauce Hollandaise'},{label:'Spezialsauce'},{label:'Jägersauce'},{label:'Currysauce'},{label:'Ohne Dressing'}]}],
+  'Thunfischsalat':      [{type:'radio',title:'Soße auswählen',required:true,options:[{label:'Soße scharf'},{label:'Joghurtsoße'},{label:'Cocktailsoße'},{label:'Tzatziki'},{label:'Kräuterbutter'},{label:'Sauce Hollandaise'},{label:'Spezialsauce'},{label:'Jägersauce'},{label:'Currysauce'},{label:'Ohne Dressing'}]}],
+  'Hawaiisalat':         [{type:'radio',title:'Soße auswählen',required:true,options:[{label:'Soße scharf'},{label:'Joghurtsoße'},{label:'Cocktailsoße'},{label:'Tzatziki'},{label:'Kräuterbutter'},{label:'Sauce Hollandaise'},{label:'Spezialsauce'},{label:'Jägersauce'},{label:'Currysauce'},{label:'Ohne Dressing'}]}],
+  'Mozzarella-Salat':    [{type:'radio',title:'Soße auswählen',required:true,options:[{label:'Soße scharf'},{label:'Joghurtsoße'},{label:'Cocktailsoße'},{label:'Tzatziki'},{label:'Kräuterbutter'},{label:'Sauce Hollandaise'},{label:'Spezialsauce'},{label:'Jägersauce'},{label:'Currysauce'},{label:'Ohne Dressing'}]}],
+  'Hähnchenbrust Salat': [{type:'radio',title:'Soße auswählen',required:true,options:[{label:'Soße scharf'},{label:'Joghurtsoße'},{label:'Cocktailsoße'},{label:'Tzatziki'},{label:'Kräuterbutter'},{label:'Sauce Hollandaise'},{label:'Spezialsauce'},{label:'Jägersauce'},{label:'Currysauce'},{label:'Ohne Dressing'}]}],
+  'Lachs Salat':         [{type:'radio',title:'Soße auswählen',required:true,options:[{label:'Soße scharf'},{label:'Joghurtsoße'},{label:'Cocktailsoße'},{label:'Tzatziki'},{label:'Kräuterbutter'},{label:'Sauce Hollandaise'},{label:'Spezialsauce'},{label:'Jägersauce'},{label:'Currysauce'},{label:'Ohne Dressing'}]}],
   // Lahmacun
   // Nr. 58 – Lahmacun mit Salat: Salat + Sauce
   'Lahmacun mit Salat': [SALAT, SOSSE],
