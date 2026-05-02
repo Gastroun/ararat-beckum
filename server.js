@@ -502,15 +502,35 @@ app.get('/api/admin/orders/pending', authMiddleware, async (req, res) => {
 // ── Alle Bestellungen abrufen ──────────────────────────────────────
 app.get('/api/admin/orders', authMiddleware, async (req, res) => {
   try {
-    // Confirmed+ und awaiting_payment (für Stripe-Übersicht)
+    const dateParam = req.query.date; // z.B. "2026-04-25"
+
+    if (dateParam) {
+      const from = new Date(dateParam + 'T00:00:00+02:00');
+      const to   = new Date(dateParam + 'T23:59:59+02:00');
+      const orders = await Order.find({
+        status:    { $nin: ['pending'] },
+        createdAt: { $gte: from, $lte: to }
+      }).sort({ createdAt: -1 });
+      return res.json({
+        orders,
+        stats: {
+          todayCount:   orders.length,
+          todayRevenue: orders.filter(o=>o.status!=='cancelled').reduce((s,o)=>s+(o.total||0),0),
+          active:       orders.filter(o=>['confirmed','preparing'].includes(o.status)).length,
+          done:         orders.filter(o=>['ready','delivered'].includes(o.status)).length,
+          cancelled:    orders.filter(o=>o.status==='cancelled').length,
+          unpaid:       orders.filter(o=>o.paymentStatus!=='paid'&&o.status!=='cancelled').length,
+        }
+      });
+    }
+
+    // Normalfall: heutige + laufende Bestellungen
     const orders = await Order.find({ status: { $nin: ['pending'] } })
       .sort({ createdAt: -1 })
       .limit(200);
 
-    // Pending separat (für Alarm-Modal)
     const pending = await Order.find({ status: 'pending' }).sort({ createdAt: 1 });
 
-    // Stats
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const todayOrders = orders.filter(o => new Date(o.createdAt) >= today);

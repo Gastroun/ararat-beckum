@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="de">
 <head>
 <meta charset="UTF-8">
@@ -473,7 +473,7 @@ html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);colo
           <span class="pill" data-f="ready" onclick="setFilter(this,'ready')">Fertig</span>
           <span class="pill" data-f="delivered" onclick="setFilter(this,'delivered')">Geliefert</span>
         </div>
-        <input type="date" id="reportDate" style="background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:5px 8px;color:var(--text);font-size:.76rem;font-family:inherit;cursor:pointer;" title="Datum für Tagesabschluss">
+        <input type="date" id="reportDate" style="background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:5px 8px;color:var(--text);font-size:.76rem;font-family:inherit;cursor:pointer;" title="Datum für Tagesabschluss" onchange="onDateChange()" oninput="onDateChange()">
         <button class="day-print-btn" onclick="printDayReport()">🖨️ Tagesabschluss</button>
       </div>
       <div class="orders-list" id="ordersList"></div>
@@ -740,6 +740,8 @@ let currentMode = 'online';
 let manualOverride = false;
 let sidebarTab = 'detail';
 let pollingTimer = null;
+let loadOrdersCtrl  = null;
+let dateChangeTimer = null;
 
 // ─── AUTH ─────────────────────────────────────────────────────────
 async function doLogin(){
@@ -835,39 +837,61 @@ function startClock(){
   tick();setInterval(tick,1000);
 }
 
+// ─── DATE NAVIGATION ──────────────────────────────────────────────
+function onDateChange() {
+  clearTimeout(dateChangeTimer);
+  document.getElementById('ordersList').innerHTML = '<div class="empty-state">⏳ Lade…</div>';
+  dateChangeTimer = setTimeout(loadOrders, 300);
+}
+
 // ─── LOAD ORDERS ──────────────────────────────────────────────────
 async function loadOrders(){
+  if(loadOrdersCtrl) loadOrdersCtrl.abort();
+  loadOrdersCtrl = new AbortController();
+
   try{
-    const res = await api('/admin/orders');
+    const reportDateVal = document.getElementById('reportDate')?.value || '';
+    const todayStr = new Date().toISOString().slice(0,10);
+    const isToday = !reportDateVal || reportDateVal === todayStr;
+
+    const url = isToday ? '/admin/orders' : `/admin/orders?date=${reportDateVal}`;
+    const res = await api(url, {signal: loadOrdersCtrl.signal});
     if(!res)return;
     const data = await res.json();
     orders = data.orders||[];
-    const pendingOrders = data.pending||[];
+    const pendingOrders = isToday ? (data.pending||[]) : [];
     const stats = data.stats||{};
-    updateStats(stats);
+    updateStats(stats, isToday, reportDateVal);
 
-    // Pending-Bestellungen prüfen: neue ins Modal, Alarm laufen lassen
-    const pendingNewIds = pendingOrders.filter(o=>!knownIds.has(o._id));
-    // Alle bekannten IDs updaten (orders + pending)
-    [...orders, ...pendingOrders].forEach(o=>knownIds.add(o._id));
-
-    if(pendingNewIds.length > 0){
-      pendingNewIds.forEach(o=>incomingQueue.push(o));
-      if(!incomingActive) showNextIncoming();
+    if(isToday){
+      const pendingNewIds = pendingOrders.filter(o=>!knownIds.has(o._id));
+      [...orders, ...pendingOrders].forEach(o=>knownIds.add(o._id));
+      if(pendingNewIds.length > 0){
+        pendingNewIds.forEach(o=>incomingQueue.push(o));
+        if(!incomingActive) showNextIncoming();
+      }
     }
-
-    // Alarm-Ton läuft dauerhaft solange Modal offen ist (gesteuert durch showNextIncoming)
-    // Wenn keine pending mehr und Modal offen → ok, closeIncomingPopup kümmert sich drum
 
     renderOrders();
     if(sidebarTab==='stats') renderStatsTab();
     if(sidebarTab==='history') renderHistoryTab();
     if(selectedId) renderDetailTab(orders.find(o=>o._id===selectedId));
-  } catch(e){console.warn('Polling error',e);}
+  } catch(e){ if(e.name!=='AbortError') console.warn('Polling error',e); }
 }
 
 // ─── STATS ────────────────────────────────────────────────────────
-function updateStats(stats){
+function updateStats(stats, isToday=true, dateVal=''){
+  if(!isToday && stats.todayRevenue !== undefined){
+    // Vergangenheits-Ansicht: Stats direkt vom Server
+    const dateLabel = new Date(dateVal+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'});
+    document.getElementById('statRevenue').textContent=fmt(stats.todayRevenue||0);
+    document.getElementById('statCount').textContent=(stats.todayCount||orders.length)+' Bestellungen ('+dateLabel+')';
+    document.getElementById('statActive').textContent=stats.active||0;
+    document.getElementById('statDone').textContent=stats.done||0;
+    document.getElementById('statCancelled').textContent=stats.cancelled||0;
+    document.getElementById('statUnpaid').textContent=stats.unpaid||0;
+    return;
+  }
   const today = orders.filter(o=>{
     const d=new Date(o.createdAt);
     const n=new Date();
