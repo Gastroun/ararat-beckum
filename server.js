@@ -1088,7 +1088,7 @@ cron.schedule('59 23 * * 0', async () => {
 
       const addrY = doc.y;
       doc.fontSize(8).fillColor('#999').text('RECHNUNGSSTELLER', 50, addrY);
-      doc.fontSize(11).font('Helvetica-Bold').fillColor('#222').text('Abed Rachman Falah / FlueVate', 50, addrY+14);
+      doc.fontSize(11).font('Helvetica-Bold').fillColor('#222').text('FlueVate', 50, addrY+14);
       doc.fontSize(10).font('Helvetica').fillColor('#555')
         .text('Zur Goldbrede 30', 50, addrY+30)
         .text('59269 Beckum', 50, addrY+44)
@@ -1148,7 +1148,7 @@ cron.schedule('59 23 * * 0', async () => {
       doc.moveDown(2);
 
       doc.fontSize(8).fillColor('#aaa')
-        .text(`FlueVate · Abed Rachman Falah · Zur Goldbrede 30 · 59269 Beckum  ·  ${rechnungNr} · KW ${kw}/${now.getFullYear()}`, 50, 780, { width: W, align: 'center' });
+        .text(`FlueVate · Zur Goldbrede 30 · 59269 Beckum  ·  ${rechnungNr} · KW ${kw}/${now.getFullYear()}`, 50, 780, { width: W, align: 'center' });
     });
 
     const berichtPdf = await generatePdf(doc => {
@@ -1273,7 +1273,7 @@ cron.schedule('58 23 * * *', async () => {
 
       const addrY = doc.y;
       doc.fontSize(8).fillColor('#999').text('RECHNUNGSSTELLER', 50, addrY);
-      doc.fontSize(11).font('Helvetica-Bold').fillColor('#222').text('Abed Rachman Falah / FlueVate', 50, addrY+14);
+      doc.fontSize(11).font('Helvetica-Bold').fillColor('#222').text('FlueVate', 50, addrY+14);
       doc.fontSize(10).font('Helvetica').fillColor('#555')
         .text('Zur Goldbrede 30', 50, addrY+30)
         .text('59269 Beckum', 50, addrY+44)
@@ -1351,7 +1351,85 @@ cron.schedule('58 23 * * *', async () => {
       });
 
       doc.fontSize(8).fillColor('#aaa')
-        .text(`FlueVate · Abed Rachman Falah · Zur Goldbrede 30 · 59269 Beckum  ·  ${rechnungNr} · ${monat}`, 50, 780, { width: W, align: 'center' });
+        .text(`FlueVate · Zur Goldbrede 30 · 59269 Beckum  ·  ${rechnungNr} · ${monat}`, 50, 780, { width: W, align: 'center' });
+
+      // ── Seite 2+: Einzelne Bestellungen ───────────────────────────
+      doc.addPage();
+      doc.rect(0, 0, 595, 50).fill('#1a1a2e');
+      doc.fontSize(14).font('Helvetica-Bold').fillColor('#fff').text('BESTELLUNGSDETAILS', 50, 14);
+      doc.fontSize(9).font('Helvetica').fillColor('rgba(255,255,255,0.7)')
+        .text(`${monat}  ·  ${orders.length} Bestellungen`, 50, 33);
+
+      let dy = 65;
+      const sortedOrders = [...orders].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+      sortedOrders.forEach(o => {
+        const itemCount = (o.items || []).length;
+        const noteLines = (o.items || []).reduce((n, i) => n + (i.note ? i.note.split(', ').length : 0), 0);
+        const hasAddr = o.mode === 'lieferung' && o.customer?.street;
+        const estimatedH = 24 + 14 + (hasAddr ? 13 : 0) + (itemCount * 14) + (noteLines * 11) + 28;
+
+        if (dy + estimatedH > 760) {
+          doc.addPage();
+          dy = 30;
+        }
+
+        const oTime = new Date(o.createdAt).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+        const modeStr = o.mode === 'lieferung' ? 'LIEFERUNG' : 'ABHOLUNG';
+        const payStr = o.payment === 'bar' ? 'Bar' : o.payment === 'stripe' ? 'Stripe' : 'EC-Karte';
+        const paidStr = o.paymentStatus === 'paid' ? 'bezahlt' : 'OFFEN';
+
+        // Kopfzeile Bestellung
+        doc.rect(50, dy, 495, 20).fill('#eef0f5');
+        doc.font('Helvetica-Bold').fontSize(9).fillColor('#1a1a2e')
+          .text(`#${o.orderNum}  ·  ${oTime}  ·  ${modeStr}`, 55, dy + 5, { width: 280 });
+        doc.font('Helvetica').fontSize(9).fillColor('#444')
+          .text(`${payStr}  –  ${paidStr}`, 340, dy + 5, { width: 200, align: 'right' });
+        dy += 22;
+
+        // Kunde
+        const custName = `${o.customer?.first || ''} ${o.customer?.last || ''}`.trim();
+        const phone = o.customer?.phone ? `  ·  ${o.customer.phone}` : '';
+        doc.font('Helvetica').fontSize(9).fillColor('#333').text(`${custName}${phone}`, 55, dy);
+        dy += 13;
+        if (hasAddr) {
+          doc.font('Helvetica').fontSize(8).fillColor('#777')
+            .text(`${o.customer.street} ${o.customer.house || ''}, ${o.customer.city || ''}`, 55, dy);
+          dy += 12;
+        }
+        dy += 2;
+
+        // Artikel
+        (o.items || []).forEach(item => {
+          const itemTotal = `${(item.price * item.qty).toFixed(2).replace('.', ',')} €`;
+          doc.font('Helvetica').fontSize(9).fillColor('#222')
+            .text(`${item.qty}×  ${item.name}`, 55, dy, { width: 340 });
+          doc.font('Helvetica').fontSize(9).fillColor('#222')
+            .text(itemTotal, 395, dy, { width: 150, align: 'right' });
+          dy += 13;
+          if (item.note) {
+            item.note.split(', ').forEach(sel => {
+              doc.font('Helvetica').fontSize(8).fillColor('#999').text(`    – ${sel}`, 65, dy);
+              dy += 11;
+            });
+          }
+        });
+
+        // Trennlinie + Gesamt
+        dy += 2;
+        doc.moveTo(55, dy).lineTo(545, dy).strokeColor('#ddd').lineWidth(0.5).stroke();
+        dy += 5;
+        if (o.deliveryFee > 0) {
+          doc.font('Helvetica').fontSize(8).fillColor('#888')
+            .text(`Liefergebühr: ${o.deliveryFee.toFixed(2).replace('.', ',')} €`, 55, dy);
+        }
+        doc.font('Helvetica-Bold').fontSize(10).fillColor('#1a1a2e')
+          .text(`Gesamt: ${(o.total || 0).toFixed(2).replace('.', ',')} €`, 350, dy, { width: 195, align: 'right' });
+        dy += 16;
+
+        doc.moveTo(50, dy).lineTo(545, dy).strokeColor('#ccc').lineWidth(0.5).stroke();
+        dy += 10;
+      });
     });
 
     if (process.env.OWNER_EMAIL) {
