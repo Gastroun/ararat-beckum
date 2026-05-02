@@ -92,7 +92,16 @@ function buildReceipt(order) {
     const line = `${item.qty}x ${name}`;
     const spaces = 32 - line.length - price.length;
     receipt += BOLD_ON + line + ' '.repeat(Math.max(1, spaces)) + price + LF + BOLD_OFF;
-    if (item.note) receipt += `   -> ${item.note}` + LF;
+    if (item.note) {
+      item.note.split(', ').forEach(sel => {
+        receipt += `   - ${sel}` + LF;
+      });
+    }
+    if (item.extraDetails && item.extraDetails.length > 0) {
+      item.extraDetails.forEach(extra => {
+        receipt += `   - ${extra.name}` + (extra.price > 0 ? ` (+${extra.price.toFixed(2).replace('.', ',')} EUR)` : '') + LF;
+      });
+    }
   });
 
   receipt += SEPARATOR;
