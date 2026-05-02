@@ -41,6 +41,7 @@ function buildReceipt(order) {
 
   // ESC/POS Commands
   const RESET        = ESC + '@';
+  const BLACK        = ESC + 'r\x00';   // Druckfarbe: Schwarz
   const BOLD_ON      = ESC + 'E\x01';
   const BOLD_OFF     = ESC + 'E\x00';
   const CENTER       = ESC + 'a\x01';
@@ -50,14 +51,14 @@ function buildReceipt(order) {
   const CUT          = GS  + 'V\x41\x03';
   const LF           = '\n';
 
-  const SEPARATOR = '--------------------------------' + LF;
+  const SEPARATOR = '------------------------------------------------' + LF; // 48 Zeichen = 80mm
 
   const time = new Date(order.createdAt).toLocaleString('de-DE', {
     day: '2-digit', month: '2-digit', year: 'numeric',
     hour: '2-digit', minute: '2-digit'
   });
 
-  let receipt = RESET;
+  let receipt = RESET + BLACK;
 
   // Header
   receipt += CENTER;
@@ -87,10 +88,10 @@ function buildReceipt(order) {
 
   // Artikel
   (order.items || []).forEach(item => {
-    const name = item.name.substring(0, 22);
+    const name = item.name.substring(0, 36);
     const price = (item.price * item.qty).toFixed(2).replace('.', ',') + ' EUR';
     const line = `${item.qty}x ${name}`;
-    const spaces = 32 - line.length - price.length;
+    const spaces = 48 - line.length - price.length;
     receipt += BOLD_ON + line + ' '.repeat(Math.max(1, spaces)) + price + LF + BOLD_OFF;
     if (item.note) {
       item.note.split(', ').forEach(sel => {
@@ -146,7 +147,7 @@ function buildReceipt(order) {
 }
 
 function padLine(label, value) {
-  const total = 32;
+  const total = 48;
   const spaces = total - label.length - value.length;
   return label + ' '.repeat(Math.max(1, spaces)) + value;
 }
