@@ -415,7 +415,7 @@ html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);colo
         <button class="mode-btn" id="modeGeschlossen" onclick="setMode('geschlossen')">🔴 Zu</button>
         <span class="mode-auto-badge" id="autoModeBadge" onclick="toggleAuto()">🕐 Auto</span>
       </div>
-      <span id="printerStatus" title="Drucker-Status" style="font-size:.75rem;padding:4px 10px;border-radius:20px;background:var(--bg3);border:1px solid var(--border);color:var(--muted);cursor:default;white-space:nowrap;">🖨️ Prüfe...</span>
+      <span id="printerStatus" title="Drucker-Status" onclick="testEposDirect()" style="font-size:.75rem;padding:4px 10px;border-radius:20px;background:var(--bg3);border:1px solid var(--border);color:var(--muted);cursor:pointer;white-space:nowrap;">🖨️ Prüfe...</span>
       <button class="logout-btn" onclick="recoverStripeOrders()" title="Stripe-Zahlungen manuell prüfen und einbuchen">🔁 Stripe</button>
       <button class="logout-btn" onclick="doLogout()">Abmelden</button>
     </div>
@@ -473,7 +473,11 @@ html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);colo
           <span class="pill" data-f="ready" onclick="setFilter(this,'ready')">Fertig</span>
           <span class="pill" data-f="delivered" onclick="setFilter(this,'delivered')">Geliefert</span>
         </div>
-        <input type="date" id="reportDate" style="background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:5px 8px;color:var(--text);font-size:.76rem;font-family:inherit;cursor:pointer;" title="Datum für Tagesabschluss" onchange="onDateChange()" oninput="onDateChange()">
+        <div style="display:flex;align-items:center;gap:4px;">
+          <button type="button" class="day-print-btn" onclick="shiftDate(-1)" title="Vorheriger Tag">←</button>
+          <input type="date" id="reportDate" style="background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:5px 8px;color:var(--text);font-size:.76rem;font-family:inherit;cursor:pointer;" title="Datum wählen" onchange="onDateChange()" oninput="onDateChange()">
+          <button type="button" class="day-print-btn" onclick="shiftDate(1)" title="Nächster Tag">→</button>
+        </div>
         <button class="day-print-btn" onclick="printDayReport()">🖨️ Tagesabschluss</button>
       </div>
       <div class="orders-list" id="ordersList"></div>
@@ -808,20 +812,30 @@ async function api(path,opts={}){
   return res;
 }
 
+function shiftDate(delta){
+  const input = document.getElementById('reportDate');
+  const base = input.value ? new Date(input.value + 'T12:00:00') : new Date();
+  base.setDate(base.getDate() + delta);
+  input.value = base.toISOString().slice(0,10);
+  onDateChange();
+}
+
 // ─── START ────────────────────────────────────────────────────────
 function startApp(){
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('app').style.display='flex';
   document.getElementById('app').style.flexDirection='column';
   document.getElementById('app').style.height='100vh';
+  document.getElementById('reportDate').value = new Date().toISOString().slice(0,10);
   startClock();
   loadAvailability();
   loadRestaurantStatus();
   loadOrders();
   pollingTimer = setInterval(loadOrders,5000);
   setInterval(loadRestaurantStatus, 30000); // Auto-Modus alle 30 Sek. prüfen
+  checkEpos();
   checkRawbt();
-  setInterval(()=>{ checkRawbt(); }, 30000);
+  setInterval(()=>{ checkEpos(); checkRawbt(); }, 30000);
 }
 
 // Check if already logged in
@@ -1317,33 +1331,32 @@ function toggleOpen(){
 }
 
 // ─── PRINT ────────────────────────────────────────────────────────
-// RawBT Pro App auf Android (ESC/POS Thermodrucker)
-const RAWBT_URL = 'http://127.0.0.1:19100';
-let rawbtConnected = false;
+// Epson TM-M30II ePOS (primär) + RawBT plain text (Fallback)
+const RAWBT_URL  = 'http://127.0.0.1:19100';
+let rawbtConnected  = false;
+let eposConnected   = false;
 
-function escposBuilder() {
-  const b = [];
-  const enc = new TextEncoder();
-  const api = {
-    init()       { b.push(0x1B,0x40); return api; },
-    cut()        { b.push(0x1D,0x56,0x41,0x03); return api; },
-    feed(n=1)    { for(let i=0;i<n;i++) b.push(0x0A); return api; },
-    bold(on)     { b.push(0x1B,0x45,on?1:0); return api; },
-    align(a)     { b.push(0x1B,0x61,a==='center'?1:a==='right'?2:0); return api; },
-    size(dbl)    { b.push(0x1D,0x21,dbl?0x11:0x00); return api; },
-    text(t)      { enc.encode(t).forEach(x=>b.push(x)); return api; },
-    line(t)      { return api.text(t).feed(); },
-    divider()    { return api.line('--------------------------------'); },
-    b64()        { return btoa(String.fromCharCode(...b)); },
-    bytes()      { return new Uint8Array(b); }
-  };
-  return api;
+function getEposUrl() {
+  const ip = localStorage.getItem('epos_ip') || '192.168.2.174';
+  return `http://${ip}/cgi-bin/epos/service.cgi?devid=local_printer&timeout=10000`;
+}
+
+function xmlEsc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function cleanName(n) {
+  return n.replace(/[A-Z0-9](,[A-Z0-9])+/g, '').replace(/\s+/g, ' ').trim();
 }
 
 function updatePrinterStatus() {
   const el = document.getElementById('printerStatus');
   if (!el) return;
-  if (rawbtConnected) {
+  if (eposConnected) {
+    el.textContent = '🖨️ Epson OK';
+    el.style.color = 'var(--green)';
+    el.style.borderColor = 'var(--green)';
+  } else if (rawbtConnected) {
     el.textContent = '🖨️ RawBT OK';
     el.style.color = 'var(--green)';
     el.style.borderColor = 'var(--green)';
@@ -1358,6 +1371,25 @@ function updatePrinterStatus() {
   }
 }
 
+async function checkEpos() {
+  const el = document.getElementById('printerStatus');
+  try {
+    await fetch(getEposUrl(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/xml; charset=utf-8', 'SOAPAction': '""' },
+      body: `<?xml version="1.0" encoding="utf-8"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print"></epos-print></s:Body></s:Envelope>`,
+      signal: AbortSignal.timeout(3000)
+    });
+    eposConnected = true;
+  } catch(e) {
+    eposConnected = false;
+    if (el) { el.style.color = 'orange'; }
+    setTimeout(() => updatePrinterStatus(), 20000);
+    return;
+  }
+  updatePrinterStatus();
+}
+
 async function checkRawbt() {
   try {
     await fetch(RAWBT_URL, { method: 'POST', body: new Uint8Array([0]), signal: AbortSignal.timeout(2000) });
@@ -1368,88 +1400,180 @@ async function checkRawbt() {
   updatePrinterStatus();
 }
 
-async function rawbtPrint(order) {
+async function eposPrint(order) {
   const isD = order.mode === 'lieferung';
-  const ep  = escposBuilder();
+  const time = new Date(order.createdAt).toLocaleString('de-DE');
 
-  ep.init()
-    .align('center').size(true).bold(true).line('ARARAT GRILL').size(false).bold(false)
-    .line('Nordwall 45 - 59269 Beckum')
-    .line('02521 / 9009414')
-    .feed().divider()
-    .bold(true).size(true).line(`#${order.orderNum}`).size(false).bold(false)
-    .line(new Date(order.createdAt).toLocaleString('de-DE'))
-    .feed()
-    .bold(true).line(isD ? '*** LIEFERUNG ***' : '*** ABHOLUNG ***').bold(false)
-    .divider();
+  const x = (t, attr='') => `<text${attr}>${xmlEsc(t)}&#10;</text>`;
+  const div = () => `<text>--------------------------------&#10;</text>`;
 
-  ep.align('left');
-  ep.line(`${order.customer?.first||''} ${order.customer?.last||''}`);
-  if (order.customer?.phone) ep.line(order.customer.phone);
+  let body = '';
+  body += `<text align="center" dh="true" dw="true" em="true">ARARAT GRILL&#10;</text>`;
+  body += `<text align="center">Nordwall 45 - 59269 Beckum&#10;</text>`;
+  body += `<text align="center">02521 / 9009414&#10;</text>`;
+  body += div();
+  body += `<text align="center" dh="true" dw="true" em="true">#${order.orderNum}&#10;</text>`;
+  body += `<text align="center">${xmlEsc(time)}&#10;</text>`;
+  body += `<text align="center" em="true">${isD ? '*** LIEFERUNG ***' : '*** ABHOLUNG ***'}&#10;</text>`;
+  body += div();
+  body += x(`${order.customer?.first||''} ${order.customer?.last||''}`);
+  if (order.customer?.phone) body += x(order.customer.phone);
   if (isD) {
-    ep.line(`${order.customer?.street||''} ${order.customer?.house||''}`);
-    ep.line(order.customer?.city||'');
+    body += x(`${order.customer?.street||''} ${order.customer?.house||''}`);
+    body += x(order.customer?.city||'');
   }
-  ep.divider();
-
-  const cleanName = n => n.replace(/[A-Z0-9](,[A-Z0-9])+$/, '').trimEnd();
+  body += div();
   for (const i of (order.items||[])) {
-    const label = `${i.qty}x ${i.num?i.num+' ':''}${cleanName(i.name)}`.slice(0,24);
-    const price = i.price === 0 ? '  GRATIS' : `${(i.price*i.qty).toFixed(2)} EUR`;
-    ep.line(`${label.padEnd(24)}${price.padStart(10)}`);
-    if (i.extraDetails && i.extraDetails.length > 0) {
-      for (const e of i.extraDetails) {
-        ep.line(`  -> ${e.name} +${Number(e.price).toFixed(2)} EUR`);
-      }
+    const label = `${i.qty}x ${cleanName(i.name)}`.substring(0,24).padEnd(24);
+    const price = i.price===0 ? '   GRATIS' : `${(i.price*i.qty).toFixed(2)} EUR`;
+    body += `<text em="true">${xmlEsc(label + price.padStart(9))}&#10;</text>`;
+    const extras = i.extraDetails || [];
+    if (extras.length) {
+      extras.forEach(e => { if (e.name) body += x(`  ${e.name}`); });
     } else if (i.note) {
-      ep.line(`  -> ${i.note}`);
+      body += x(`  ${i.note}`);
     }
   }
-
-  ep.divider()
-    .line(`Zwischensumme:  ${String((order.subtotal||0).toFixed(2)+' EUR').padStart(14)}`);
-  if (order.deliveryFee>0)
-    ep.line(`Liefergebuehr:  ${String(order.deliveryFee.toFixed(2)+' EUR').padStart(14)}`);
-  if (order.serviceFee>0)
-    ep.line(`Servicegebuehr: ${String((order.serviceFee||0).toFixed(2)+' EUR').padStart(14)}`);
-  ep.bold(true)
-    .line(`GESAMT:         ${String((order.total||0).toFixed(2)+' EUR').padStart(14)}`)
-    .bold(false).divider();
-
+  body += div();
+  const pad = v => String(v).padStart(14);
+  body += x(`Zwischensumme:  ${pad((order.subtotal||0).toFixed(2)+' EUR')}`);
+  if ((order.deliveryFee||0)>0) body += x(`Liefergebuehr:  ${pad(order.deliveryFee.toFixed(2)+' EUR')}`);
+  body += x(`Servicegebuehr: ${pad((order.serviceFee||0.99).toFixed(2)+' EUR')}`);
+  body += `<text em="true">GESAMT:         ${xmlEsc(pad((order.total||0).toFixed(2)+' EUR'))}&#10;</text>`;
+  body += div();
   const zahlung = order.payment==='stripe'?'KREDITKARTE':order.payment==='karte'?'EC-KARTE':'BARZAHLUNG';
-  ep.line(`Zahlung: ${zahlung}`);
-  ep.line(order.paymentStatus==='paid' ? 'BEZAHLT' : '!!! BITTE KASSIEREN !!!');
-  if (order.prepTime) ep.line(`Wartezeit: ca. ${order.prepTime} Minuten`);
-  if (order.note) ep.line(`Anm.: ${order.note}`);
-  ep.feed().align('center').line('Vielen Dank fuer Ihre Bestellung!').feed(3).cut();
+  body += x(`Zahlung: ${zahlung}`);
+  body += x(order.paymentStatus==='paid' ? 'BEZAHLT' : '!!! BITTE KASSIEREN !!!');
+  if (order.prepTime) body += x(`Wartezeit: ca. ${order.prepTime} Minuten`);
+  if (order.note) body += `<text em="true">${xmlEsc('Anm.: '+order.note)}&#10;</text>`;
+  body += `<feed line="3"/><cut type="feed"/>`;
 
-  const bytes = ep.bytes();
+  const xml = `<?xml version="1.0" encoding="utf-8"?>`
+    + `<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">`
+    + `<s:Body><epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">`
+    + body
+    + `</epos-print></s:Body></s:Envelope>`;
 
-  // 1. HTTP API (RawBT Pro mit aktivierter REST API)
   try {
-    const res = await fetch(RAWBT_URL, {
+    await fetch(getEposUrl(), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/octet-stream' },
-      body: bytes,
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: xml,
+      signal: AbortSignal.timeout(6000)
+    });
+    eposConnected = true;
+    updatePrinterStatus();
+    return true;
+  } catch(e) {
+    eposConnected = false;
+    updatePrinterStatus();
+    return false;
+  }
+}
+
+async function testEposDirect() {
+  const el = document.getElementById('printerStatus');
+  el.textContent = '🖨️ Teste...';
+  const url = getEposUrl();
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/xml; charset=utf-8', 'SOAPAction': '""' },
+      body: '<?xml version="1.0" encoding="utf-8"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print"><text>TEST</text></epos-print></s:Body></s:Envelope>',
       signal: AbortSignal.timeout(5000)
     });
-    if (res.ok) { rawbtConnected = true; updatePrinterStatus(); return true; }
-  } catch(e) { /* HTTP nicht verfügbar */ }
+    el.textContent = 'ePOS: ' + res.status + ' ' + res.statusText;
+    el.style.color = res.ok ? 'var(--green)' : 'orange';
+  } catch(e) {
+    el.textContent = 'ERR: ' + e.name;
+    el.style.color = 'var(--red)';
+  }
+}
 
-  // 2. Broadcast Intent (Fully Kiosk → RawBT)
-  if (window.fully || /Android/i.test(navigator.userAgent)) {
-    const b64 = btoa(String.fromCharCode(...bytes));
-    if (window.fully && typeof window.fully.sendBroadcastIntent === 'function') {
-      window.fully.sendBroadcastIntent('ru.a402d.rawbtprinter.action.PRINT_TAG', 'DATA', b64);
+function buildBonText(order) {
+  const isD = order.mode === 'lieferung';
+  const sep = '--------------------------------';
+  let txt = '';
+  txt += 'ARARAT GRILL\n';
+  txt += 'Nordwall 45 - 59269 Beckum\n';
+  txt += '02521 / 9009414\n';
+  txt += sep + '\n';
+  txt += `BESTELLUNG #${order.orderNum}\n`;
+  txt += new Date(order.createdAt).toLocaleString('de-DE') + '\n';
+  txt += (isD ? '*** LIEFERUNG ***' : '*** ABHOLUNG ***') + '\n';
+  txt += sep + '\n';
+  txt += `${order.customer?.first||''} ${order.customer?.last||''}\n`;
+  if (order.customer?.phone) txt += order.customer.phone + '\n';
+  if (isD) {
+    txt += `${order.customer?.street||''} ${order.customer?.house||''}\n`;
+    txt += (order.customer?.city||'') + '\n';
+  }
+  txt += sep + '\n';
+  for (const i of (order.items||[])) {
+    const name = cleanName(i.name).slice(0,22);
+    const price = i.price===0 ? 'GRATIS' : `${(i.price*i.qty).toFixed(2)} EUR`;
+    txt += `${i.qty}x ${name.padEnd(22)} ${price}\n`;
+    const extras = i.extraDetails||[];
+    if (extras.length) extras.forEach(e => { if(e.name) txt += `  ${e.name}\n`; });
+    else if (i.note) txt += `  ${i.note}\n`;
+  }
+  txt += sep + '\n';
+  txt += `Zwischensumme:     ${(order.subtotal||0).toFixed(2)} EUR\n`;
+  if ((order.deliveryFee||0)>0) txt += `Liefergebuehr:     ${order.deliveryFee.toFixed(2)} EUR\n`;
+  txt += `Servicegebuehr:    ${(order.serviceFee||0.99).toFixed(2)} EUR\n`;
+  txt += sep + '\n';
+  txt += `GESAMT:            ${(order.total||0).toFixed(2)} EUR\n`;
+  txt += sep + '\n';
+  txt += `Zahlung: ${order.payment==='stripe'?'KREDITKARTE':order.payment==='karte'?'EC-KARTE':'BARZAHLUNG'}\n`;
+  txt += (order.paymentStatus==='paid' ? 'BEZAHLT' : '!!! BITTE KASSIEREN !!!') + '\n';
+  if (order.note) txt += `Notiz: ${order.note}\n`;
+  txt += sep + '\n';
+  txt += 'Vielen Dank!\n\n\n';
+  return txt;
+}
+
+async function rawbtPrint(order) {
+  const txt = buildBonText(order);
+
+  // Versuch 1: RawBT HTTP API (funktioniert wenn Fully Kiosk "Allow Mixed Content" aktiviert hat)
+  try {
+    const res = await fetch('http://127.0.0.1:19100/rawbt', {
+      method: 'POST',
+      body: new TextEncoder().encode(txt),
+      headers: { 'Content-Type': 'application/octet-stream' },
+      signal: AbortSignal.timeout(4000)
+    });
+    if (res.ok || res.status < 500) {
       rawbtConnected = true;
       updatePrinterStatus();
       return true;
     }
-    window.location.href = 'rawbt://print?base64=' + encodeURIComponent(b64);
+  } catch(e) { /* Mixed Content blockiert oder RawBT nicht erreichbar */ }
+
+  // Versuch 2: Fully Kiosk loadURL (öffnet rawbt: App und kommt zurück)
+  if (window.fully) {
+    try {
+      window.fully.loadURL('rawbt:print?text=' + encodeURIComponent(txt));
+      setTimeout(() => window.fully.loadURL(window.location.href), 2500);
+      rawbtConnected = true;
+      updatePrinterStatus();
+      return true;
+    } catch(e) {}
+  }
+
+  // Versuch 3: rawbt: URL scheme via <a> click
+  try {
+    const a = document.createElement('a');
+    a.href = 'rawbt:print?text=' + encodeURIComponent(txt);
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { try { document.body.removeChild(a); } catch(e){} }, 1000);
     rawbtConnected = true;
     updatePrinterStatus();
     return true;
-  }
+  } catch(e) {}
 
   rawbtConnected = false;
   updatePrinterStatus();
@@ -1486,15 +1610,25 @@ function fullyPrint(order) {
 
 function buildBonHtml(order) {
   const isD = order.mode==='lieferung';
-  const cleanName = n => n.replace(/[A-Z0-9](,[A-Z0-9])+$/, '').trimEnd();
-  var rowParts = [];
-  (order.items||[]).forEach(function(i){
-    rowParts.push('<tr><td>'+i.qty+'×</td><td>'+(i.num?'<span style="font-size:10px;font-weight:bold;margin-right:3px;">'+i.num+'</span> ':'')+cleanName(i.name)+'</td><td style="text-align:right">'+(i.price===0?'GRATIS':(i.price*i.qty).toFixed(2).replace('.',',')+' €')+'</td></tr>');
-    var ed = i.extraDetails || [];
-    ed.forEach(function(e){ rowParts.push('<tr><td></td><td style="color:#888;font-size:11px;">↳ '+e.name+'</td><td style="text-align:right;color:#888;font-size:11px;">+'+Number(e.price).toFixed(2).replace('.',',')+' €</td></tr>'); });
-    if(!ed.length && i.note) rowParts.push('<tr><td></td><td colspan="2" style="color:#888;font-size:11px;">↳ '+i.note+'</td></tr>');
-  });
-  const rows = rowParts.join('');
+  const rows = (order.items||[]).map(i => {
+    const baseName = cleanName(i.name);
+    const priceStr = i.price === 0 ? 'GRATIS' : (i.price * i.qty).toFixed(2).replace('.', ',') + ' €';
+    const extras = i.extraDetails || [];
+    const legacyNote = !extras.length && i.note ? i.note : '';
+    let html = `<tr>
+      <td style="vertical-align:top;padding-right:4px;">${i.qty}×</td>
+      <td style="vertical-align:top;">${baseName}${legacyNote ? ' ('+legacyNote+')' : ''}</td>
+      <td style="text-align:right;vertical-align:top;white-space:nowrap;">${priceStr}</td>
+    </tr>`;
+    extras.forEach(e => {
+      if (!e.name) return;
+      html += `<tr style="font-size:11px;color:#555;">
+        <td></td>
+        <td style="padding-left:10px;" colspan="2">↳ ${e.name}</td>
+      </tr>`;
+    });
+    return html;
+  }).join('');
   return `<div style="font-family:monospace;font-size:12px;max-width:320px;margin:0 auto;padding:10px;background:white;color:black;">
   <h2 style="text-align:center;margin-bottom:4px;">ARARAT GRILL</h2>
   <p style="text-align:center;margin:2px 0;">Nordwall 45 · 59269 Beckum</p>
@@ -1513,7 +1647,7 @@ function buildBonHtml(order) {
   <table style="width:100%;border-collapse:collapse;">
     <tr><td>Zwischensumme</td><td style="text-align:right">${(order.subtotal||0).toFixed(2).replace('.',',')} €</td></tr>
     ${order.deliveryFee>0?`<tr><td>Liefergebühr</td><td style="text-align:right">${order.deliveryFee.toFixed(2).replace('.',',')} €</td></tr>`:''}
-    ${order.serviceFee>0?`<tr><td>Servicegebühr</td><td style="text-align:right">${(order.serviceFee).toFixed(2).replace('.',',')} €</td></tr>`:''}
+    ${(order.serviceFee||0)>0?`<tr><td>Servicegebühr</td><td style="text-align:right">${(order.serviceFee).toFixed(2).replace('.',',')} €</td></tr>`:''}
     <tr style="font-weight:bold;font-size:14px;border-top:1px solid #000;"><td>GESAMT</td><td style="text-align:right">${(order.total||0).toFixed(2).replace('.',',')} €</td></tr>
   </table>
   <hr style="border:none;border-top:1px dashed #000;margin:8px 0;">
@@ -1522,7 +1656,7 @@ function buildBonHtml(order) {
   <hr style="border:none;border-top:1px dashed #000;margin:8px 0;">
   <p style="text-align:center;margin:2px 0;">Vielen Dank!</p>
   ${order.prepTime?`<p style="text-align:center;margin:2px 0;">~${order.prepTime} Minuten</p>`:''}
-  ${order.note?`<hr style="border:none;border-top:1px dashed #000;margin:8px 0;"><p style="margin:2px 0;font-size:11px;"><strong>Kundennotiz:</strong> ${order.note}</p>`:''}
+  ${order.note?`<hr style="border:none;border-top:1px dashed #000;margin:8px 0;"><p style="margin:4px 0;font-weight:bold;">📝 Kundennotiz:</p><p style="margin:2px 0;">${order.note}</p>`:''}
   </div>`;
 }
 
