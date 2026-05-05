@@ -416,7 +416,7 @@ html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);colo
         <span class="mode-auto-badge" id="autoModeBadge" onclick="toggleAuto()">🕐 Auto</span>
       </div>
       <span id="printerStatus" title="Drucker-Status" onclick="testEposDirect()" style="font-size:.75rem;padding:4px 10px;border-radius:20px;background:var(--bg3);border:1px solid var(--border);color:var(--muted);cursor:pointer;white-space:nowrap;">🖨️ Prüfe...</span>
-      <button class="logout-btn" onclick="recoverStripeOrders()" title="Stripe-Zahlungen manuell prüfen und einbuchen">🔁 Stripe</button>
+      <button class="logout-btn" id="btnStripePanel" onclick="openStripeModal()" title="Ausstehende Stripe-Zahlungen">💳 Stripe</button>
       <button class="logout-btn" onclick="doLogout()">Abmelden</button>
     </div>
   </div>
@@ -425,6 +425,27 @@ html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);colo
   <div class="alert-banner" id="alertBanner">
     <span class="alert-text" id="alertText">🔔 Neue Bestellung eingegangen!</span>
     <button class="alert-dismiss" onclick="dismissAlert()">✕ OK</button>
+  </div>
+
+  <!-- STRIPE MODAL -->
+  <div id="stripeModal" onclick="if(event.target===this)closeStripeModal()"
+       style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999999;align-items:center;justify-content:center;padding:16px;">
+    <div style="background:var(--bg2);border-radius:16px;width:100%;max-width:520px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;">
+      <div style="background:linear-gradient(135deg,#7a5200,#c88a00);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+        <div style="color:#fff;font-size:1rem;font-weight:700;">💳 Stripe-Zahlungen ausstehend</div>
+        <button onclick="closeStripeModal()" style="background:rgba(255,255,255,.2);border:none;border-radius:8px;width:32px;height:32px;color:#fff;font-size:1.1rem;cursor:pointer;">✕</button>
+      </div>
+      <div style="padding:16px;overflow-y:auto;flex:1;">
+        <p style="font-size:.8rem;color:var(--muted);margin-bottom:14px;">Diese Bestellungen warten auf Stripe-Zahlung und erscheinen nicht in der Hauptliste.</p>
+        <div id="stripeModalList"><div style="text-align:center;padding:24px;color:var(--muted);font-size:.85rem;">Keine ausstehenden Zahlungen</div></div>
+        <div style="margin-top:14px;">
+          <button id="btnRecoverAction" onclick="doRecoverStripe()"
+                  style="width:100%;background:linear-gradient(135deg,#7a5200,#c88a00);color:#fff;border:none;border-radius:10px;padding:12px;font-size:.9rem;font-weight:700;cursor:pointer;font-family:inherit;">
+            🔁 Bei Stripe prüfen &amp; einbuchen
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- STATS BAR -->
@@ -746,6 +767,7 @@ let sidebarTab = 'detail';
 let pollingTimer = null;
 let loadOrdersCtrl  = null;
 let dateChangeTimer = null;
+let stripeOrders = [];
 
 // ─── AUTH ─────────────────────────────────────────────────────────
 async function doLogin(){
@@ -790,16 +812,85 @@ function doLogout(){
   document.getElementById('loginScreen').style.display='flex';
 }
 
-async function recoverStripeOrders(){
+// ─── STRIPE MODAL ─────────────────────────────────────────────────
+function updateStripeBadge(){
+  const btn = document.getElementById('btnStripePanel');
+  if(!btn) return;
+  const old = btn.querySelector('.stripe-badge');
+  if(old) old.remove();
+  if(stripeOrders.length > 0){
+    const badge = document.createElement('span');
+    badge.className = 'stripe-badge';
+    badge.textContent = stripeOrders.length;
+    badge.style.cssText = 'display:inline-block;background:#ef5350;color:#fff;border-radius:50%;width:17px;height:17px;font-size:.65rem;font-weight:700;line-height:17px;text-align:center;margin-left:5px;vertical-align:middle;';
+    btn.appendChild(badge);
+  }
+}
+
+function openStripeModal(){
+  const listEl = document.getElementById('stripeModalList');
+  if(listEl){
+    if(!stripeOrders.length){
+      listEl.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted);font-size:.85rem;">✓ Keine ausstehenden Stripe-Zahlungen</div>';
+    } else {
+      listEl.innerHTML = stripeOrders.map(o => {
+        const isD = o.mode === 'lieferung';
+        const addr = isD ? `${o.customer?.street||''} ${o.customer?.house||''}, ${o.customer?.city||''}`.trim() : 'Abholung';
+        const itemRows = (o.items||[]).map(i => {
+          const extras = (i.extraDetails||[]).filter(e=>e.name);
+          const legacyNote = !extras.length && i.note ? i.note : '';
+          const priceStr = i.price===0?'GRATIS':((i.price||0)*(i.qty||1)).toFixed(2).replace('.',',')+' €';
+          return `<div style="display:flex;justify-content:space-between;font-size:.82rem;padding:3px 0;border-bottom:1px solid var(--border);">
+            <span>${i.qty}× ${cleanName(i.name)}${legacyNote?' ('+legacyNote+')':''}</span>
+            <span>${priceStr}</span>
+          </div>
+          ${extras.map(e=>`<div style="font-size:.72rem;color:var(--muted);padding-left:14px;">↳ ${e.name}</div>`).join('')}`;
+        }).join('');
+        return `<div style="background:var(--bg3);border:1px solid #2a1f08;border-radius:10px;margin-bottom:10px;overflow:hidden;">
+          <div style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--border);">
+            <span style="color:#f5a623;font-weight:700;font-size:.9rem;">#${o.orderNum}</span>
+            <span style="font-size:.82rem;">${isD?'🛵 Lieferung':'🏃 Abholung'}</span>
+            <span style="flex:1;font-size:.82rem;">${o.customer?.first||''} ${o.customer?.last||''}</span>
+            <span style="font-size:.74rem;color:var(--muted);">${new Date(o.createdAt).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})}</span>
+          </div>
+          <div style="padding:5px 12px;font-size:.75rem;color:var(--muted);">📍 ${addr}${o.customer?.phone?' · 📞 '+o.customer.phone:''}</div>
+          <div style="padding:6px 12px 8px;">${itemRows}
+            <div style="display:flex;justify-content:space-between;font-weight:700;font-size:.88rem;padding-top:6px;border-top:1px solid var(--border);margin-top:4px;">
+              <span>Gesamt</span><span style="color:var(--gold);">${(o.total||0).toFixed(2).replace('.',',')} €</span>
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+  }
+  document.getElementById('stripeModal').style.display = 'flex';
+}
+
+function closeStripeModal(){
+  document.getElementById('stripeModal').style.display = 'none';
+}
+
+async function doRecoverStripe(){
+  const btn = document.getElementById('btnRecoverAction');
+  btn.disabled = true;
+  btn.textContent = '⏳ Prüfe…';
   try{
     const res = await api('/admin/recover-stripe-orders',{method:'POST'});
-    if(!res.ok) throw new Error('Server-Fehler');
+    if(!res.ok) throw new Error();
     const data = await res.json();
     showToast(`🔁 ${data.recovered} von ${data.checked} Stripe-Bestellung(en) eingebucht`);
-    if(data.recovered > 0) await loadOrders();
+    await loadOrders();
+    openStripeModal();
   } catch(e){
     showToast('Fehler bei Stripe-Einbuchung');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '🔁 Bei Stripe prüfen &amp; einbuchen';
   }
+}
+
+async function recoverStripeOrders(){
+  return doRecoverStripe();
 }
 
 // ─── API HELPER ───────────────────────────────────────────────────
@@ -872,10 +963,13 @@ async function loadOrders(){
     const res = await api(url, {signal: loadOrdersCtrl.signal});
     if(!res)return;
     const data = await res.json();
-    orders = data.orders||[];
+    const raw = data.orders||[];
+    stripeOrders = raw.filter(o => o.status === 'awaiting_payment');
+    orders       = raw.filter(o => o.status !== 'awaiting_payment');
     const pendingOrders = isToday ? (data.pending||[]) : [];
     const stats = data.stats||{};
     updateStats(stats, isToday, reportDateVal);
+    updateStripeBadge();
 
     if(isToday){
       const pendingNewIds = pendingOrders.filter(o=>!knownIds.has(o._id));
