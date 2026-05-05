@@ -2812,10 +2812,11 @@ function addToCartFromPopup(){
     });
   }
   const finalPrice=currentItem.price+extraPrice;
-  const note=selections.length?selections.join(', '):'';
-  const existing=cart.find(c=>c.name===currentItem.name&&c.note===note);
+  const extraDetails=selections.map(label=>({name:label,price:0}));
+  const noteKey=selections.join(', ');
+  const existing=cart.find(c=>c.name===currentItem.name&&c._noteKey===noteKey);
   if(existing)existing.qty+=popupQty;
-  else cart.push({...currentItem,price:finalPrice,note,qty:popupQty});
+  else cart.push({...currentItem,price:finalPrice,extraDetails,_noteKey:noteKey,note:'',qty:popupQty});
   const addedName = currentItem.name;
   updateCartUI();closePopup();
   showToast(addedName+' hinzugefügt ✓');
@@ -2905,7 +2906,8 @@ function updateCartUI(){
         +'<span style="background:#e8f5e9;color:#2e7d32;font-size:.72rem;font-weight:700;padding:3px 8px;border-radius:12px;">GRATIS</span>'
         +'<div class="cart-item-total" style="color:#2e7d32;">0,00 €</div></div>';
     } else {
-      div.innerHTML='<div class="cart-item-emoji" style="font-size:.85rem;font-weight:700;color:var(--muted);opacity:.6;width:40px;text-align:center;">'+item.num+'</div><div class="cart-item-info"><div class="cart-item-name">'+item.name+'</div>'+(item.note?'<div class="cart-item-price" style="font-size:.75rem;color:var(--muted)">'+item.note+'</div>':'')+'<div class="cart-item-price">'+fmt(item.price)+' / Stück</div></div><div class="cart-item-controls"><button class="cart-qty-btn" onclick="cartQty('+i+',-1)">−</button><span class="cart-qty">'+item.qty+'</span><button class="cart-qty-btn" onclick="cartQty('+i+',1)">+</button></div><div class="cart-item-total">'+fmt(item.price*item.qty)+'</div>';
+      const extrasHtml=(item.extraDetails&&item.extraDetails.length)?item.extraDetails.map(e=>'<div class="cart-item-price" style="font-size:.75rem;color:var(--muted);">↳ '+e.name+'</div>').join(''):(item.note?'<div class="cart-item-price" style="font-size:.75rem;color:var(--muted);">'+item.note+'</div>':'');
+      div.innerHTML='<div class="cart-item-emoji" style="font-size:.85rem;font-weight:700;color:var(--muted);opacity:.6;width:40px;text-align:center;">'+item.num+'</div><div class="cart-item-info"><div class="cart-item-name">'+item.name+'</div>'+extrasHtml+'<div class="cart-item-price">'+fmt(item.price)+' / Stück</div></div><div class="cart-item-controls"><button class="cart-qty-btn" onclick="cartQty('+i+',-1)">−</button><span class="cart-qty">'+item.qty+'</span><button class="cart-qty-btn" onclick="cartQty('+i+',1)">+</button></div><div class="cart-item-total">'+fmt(item.price*item.qty)+'</div>';
     }
     container.appendChild(div);
   });
@@ -3023,7 +3025,8 @@ function updateCoSummary(){
   const {subtotal, fee, serviceFee, total, vat} = calcAmounts();
   let itemsHtml='';
   cart.forEach(item=>{
-    itemsHtml+=`<div class="co-sum-item"><span class="co-si-name">${item.qty}× ${item.name}${item.note?' <em style="font-size:.7rem;color:#999">('+item.note+')</em>':''}</span><span class="co-si-price">${fmt(item.price*item.qty)}</span></div>`;
+    const coExtras=(item.extraDetails&&item.extraDetails.length)?'<div style="font-size:.72rem;color:#999;margin-top:2px;">'+item.extraDetails.map(e=>'↳ '+e.name).join('<br>')+'</div>':(item.note?'<div style="font-size:.72rem;color:#999;">('+item.note+')</div>':'');
+    itemsHtml+=`<div class="co-sum-item"><span class="co-si-name">${item.qty}× ${item.name}${coExtras}</span><span class="co-si-price">${fmt(item.price*item.qty)}</span></div>`;
   });
   const el=id=>document.getElementById(id);
   if(el('coSumItems')) el('coSumItems').innerHTML=itemsHtml;
