@@ -2630,7 +2630,7 @@ function selectOpt(label){
       i.closest('.opt-item').classList.remove('selected');
     });
   }
-  label.classList.toggle('selected', input.type==='checkbox' ? input.checked : true);
+  label.classList.toggle('selected', input.type==='checkbox' ? !input.checked : true);
 
   // Shared: gi + config for all logic below
   const gi = parseInt(input.name.replace('group_',''));
