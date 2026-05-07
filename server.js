@@ -524,16 +524,18 @@ app.get('/api/admin/orders', authMiddleware, async (req, res) => {
       });
     }
 
-    // Normalfall: heutige + laufende Bestellungen
-    const orders = await Order.find({ status: { $nin: ['pending'] } })
-      .sort({ createdAt: -1 })
-      .limit(200);
+    // Normalfall: nur heutige Bestellungen (UTC+2)
+    const berlinDateStr = new Date(Date.now() + 2*60*60*1000).toISOString().slice(0,10);
+    const todayFrom = new Date(berlinDateStr + 'T00:00:00+02:00');
+
+    const orders = await Order.find({
+      status: { $nin: ['pending'] },
+      createdAt: { $gte: todayFrom }
+    }).sort({ createdAt: -1 }).limit(200);
 
     const pending = await Order.find({ status: 'pending' }).sort({ createdAt: 1 });
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayOrders = orders.filter(o => new Date(o.createdAt) >= today);
+    const todayOrders = orders;
     const todayRevenue = todayOrders
       .filter(o => o.status !== 'cancelled')
       .reduce((sum, o) => sum + (o.total || 0), 0);
