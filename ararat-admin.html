@@ -1709,6 +1709,8 @@ function buildBonHtml(order) {
     const priceStr = i.price === 0 ? 'GRATIS' : (i.price * i.qty).toFixed(2).replace('.', ',') + ' €';
     const extras = i.extraDetails || [];
     const legacyNote = !extras.length && i.note ? i.note : '';
+    const NEEDS_SELECTION = ['Döner-Tasche','Pomm-Döner','Döner-Box','Dürüm','Dürüm Spezial','Döner Teller','Iskender Kebab','Saray Döner'];
+    const missingSelection = extras.filter(e=>e.name).length === 0 && !legacyNote && NEEDS_SELECTION.includes(i.name);
     let html = `<tr>
       <td style="vertical-align:top;padding-right:4px;">${i.qty}×</td>
       <td style="vertical-align:top;">${baseName}${legacyNote ? ' ('+legacyNote+')' : ''}</td>
@@ -1721,6 +1723,12 @@ function buildBonHtml(order) {
         <td style="padding-left:10px;" colspan="2">↳ ${e.name}</td>
       </tr>`;
     });
+    if (missingSelection) {
+      html += `<tr style="font-size:11px;color:#c00;font-weight:bold;">
+        <td></td>
+        <td style="padding-left:10px;" colspan="2">⚠ Auswahl fehlt – Kunde fragen!</td>
+      </tr>`;
+    }
     return html;
   }).join('');
   return `<div style="font-family:monospace;font-size:12px;max-width:320px;margin:0 auto;padding:10px;background:white;color:black;">
