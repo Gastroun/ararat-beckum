@@ -88,7 +88,8 @@ function buildReceipt(order) {
 
   // Artikel
   (order.items || []).forEach(item => {
-    const name = item.name.substring(0, 36);
+    const numPrefix = item.num ? `${item.num} ` : '';
+    const name = (numPrefix + item.name).substring(0, 36);
     const price = (item.price * item.qty).toFixed(2).replace('.', ',') + ' EUR';
     const line = `${item.qty}x ${name}`;
     const spaces = 48 - line.length - price.length;
@@ -100,7 +101,7 @@ function buildReceipt(order) {
     }
     if (item.extraDetails && item.extraDetails.length > 0) {
       item.extraDetails.forEach(extra => {
-        receipt += `   - ${extra.name}` + (extra.price > 0 ? ` (+${extra.price.toFixed(2).replace('.', ',')} EUR)` : '') + LF;
+        receipt += BOLD_ON + `   • ${extra.name}` + (extra.price > 0 ? ` (+${extra.price.toFixed(2).replace('.', ',')} EUR)` : '') + BOLD_OFF + LF;
       });
     }
   });

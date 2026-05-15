@@ -1709,26 +1709,19 @@ function buildBonHtml(order) {
     const priceStr = i.price === 0 ? 'GRATIS' : (i.price * i.qty).toFixed(2).replace('.', ',') + ' €';
     const extras = i.extraDetails || [];
     const legacyNote = !extras.length && i.note ? i.note : '';
-    const NEEDS_SELECTION = ['Döner-Tasche','Pomm-Döner','Döner-Box','Dürüm','Dürüm Spezial','Döner Teller','Iskender Kebab','Saray Döner'];
-    const missingSelection = extras.filter(e=>e.name).length === 0 && !legacyNote && NEEDS_SELECTION.includes(i.name);
+    const numStr = i.num ? `<span style="color:#000;">${i.num}</span> ` : '';
     let html = `<tr>
-      <td style="vertical-align:top;padding-right:4px;">${i.qty}×</td>
-      <td style="vertical-align:top;">${baseName}${legacyNote ? ' ('+legacyNote+')' : ''}</td>
-      <td style="text-align:right;vertical-align:top;white-space:nowrap;">${priceStr}</td>
+      <td style="vertical-align:top;padding-right:4px;white-space:nowrap;font-weight:bold;">${i.qty}×</td>
+      <td style="vertical-align:top;font-weight:bold;">${numStr}${baseName}${legacyNote ? ' ('+legacyNote+')' : ''}</td>
+      <td style="text-align:right;vertical-align:top;white-space:nowrap;font-weight:bold;">${priceStr}</td>
     </tr>`;
     extras.forEach(e => {
       if (!e.name) return;
-      html += `<tr style="font-size:11px;color:#000;">
+      html += `<tr>
         <td></td>
-        <td style="padding-left:10px;" colspan="2">↳ ${e.name}</td>
+        <td style="padding-left:6px;color:#000;font-weight:bold;" colspan="2">• ${e.name}</td>
       </tr>`;
     });
-    if (missingSelection) {
-      html += `<tr style="font-size:11px;color:#c00;font-weight:bold;">
-        <td></td>
-        <td style="padding-left:10px;" colspan="2">⚠ Auswahl fehlt – Kunde fragen!</td>
-      </tr>`;
-    }
     return html;
   }).join('');
   return `<div style="font-family:monospace;font-size:12px;max-width:320px;margin:0 auto;padding:10px;background:white;color:black;">
