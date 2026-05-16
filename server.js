@@ -1068,7 +1068,7 @@ cron.schedule('59 23 * * 0', async () => {
     });
 
     const brutto     = orders.reduce((s,o) => s+(o.total||0), 0);
-    const svcFees    = orders.reduce((s,o) => s+(o.serviceFee||0.99), 0);
+    const svcFees    = orders.reduce((s,o) => s+(o.serviceFee||1.00), 0);
     const nettoBase  = brutto - svcFees;
     const provision  = nettoBase * 0.05;
     const meinBetrag = svcFees + provision;
@@ -1124,7 +1124,7 @@ cron.schedule('59 23 * * 0', async () => {
       doc.moveDown(0.5);
 
       doc.font('Helvetica-Bold').fontSize(11).fillColor('#222').text('Servicegebühren Online-Bestellsystem', 50);
-      doc.font('Helvetica').fontSize(9).fillColor('#888').text(`0,99 € × ${orders.length} Bestellungen (KW ${kw})`);
+      doc.font('Helvetica').fontSize(9).fillColor('#888').text(`1,00 € × ${orders.length} Bestellungen (KW ${kw})`);
       const sfY = doc.y - 32;
       doc.font('Helvetica-Bold').fontSize(11).fillColor('#222').text(`${svcFees.toFixed(2).replace('.',',')} €`, 50, sfY, { width: W, align: 'right' });
       doc.moveDown(0.8);
@@ -1255,7 +1255,7 @@ cron.schedule('58 23 * * *', async () => {
     });
 
     const brutto     = orders.reduce((s,o) => s+(o.total||0), 0);
-    const svcFees    = orders.reduce((s,o) => s+(o.serviceFee||0.99), 0);
+    const svcFees    = orders.reduce((s,o) => s+(o.serviceFee||1.00), 0);
     const nettoBase  = brutto - svcFees;
     const provision  = nettoBase * 0.05;
     const meinBetrag = svcFees + provision;
@@ -1309,7 +1309,7 @@ cron.schedule('58 23 * * *', async () => {
       doc.moveDown(0.5);
 
       doc.font('Helvetica-Bold').fontSize(11).fillColor('#222').text('Servicegebühren Online-Bestellsystem', 50);
-      doc.font('Helvetica').fontSize(9).fillColor('#888').text(`0,99 € × ${orders.length} Bestellungen (${monat})`);
+      doc.font('Helvetica').fontSize(9).fillColor('#888').text(`1,00 € × ${orders.length} Bestellungen (${monat})`);
       const sfY = doc.y - 32;
       doc.font('Helvetica-Bold').fontSize(11).fillColor('#222').text(`${svcFees.toFixed(2).replace('.',',')} €`, 50, sfY, { width: W, align: 'right' });
       doc.moveDown(0.8);

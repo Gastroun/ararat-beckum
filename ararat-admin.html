@@ -1532,7 +1532,7 @@ async function eposPrint(order) {
   const pad = v => String(v).padStart(14);
   body += x(`Zwischensumme:  ${pad((order.subtotal||0).toFixed(2)+' EUR')}`);
   if ((order.deliveryFee||0)>0) body += x(`Liefergebuehr:  ${pad(order.deliveryFee.toFixed(2)+' EUR')}`);
-  body += x(`Servicegebuehr: ${pad((order.serviceFee||0.99).toFixed(2)+' EUR')}`);
+  body += x(`Servicegebuehr: ${pad((order.serviceFee||1.00).toFixed(2)+' EUR')}`);
   body += `<text em="true">GESAMT:         ${xmlEsc(pad((order.total||0).toFixed(2)+' EUR'))}&#10;</text>`;
   body += div();
   const zahlung = order.payment==='stripe'?'KREDITKARTE':order.payment==='karte'?'EC-KARTE':'BARZAHLUNG';
@@ -1615,7 +1615,7 @@ function buildBonText(order) {
   txt += sep + '\n';
   txt += `Zwischensumme:     ${(order.subtotal||0).toFixed(2)} EUR\n`;
   if ((order.deliveryFee||0)>0) txt += `Liefergebuehr:     ${order.deliveryFee.toFixed(2)} EUR\n`;
-  txt += `Servicegebuehr:    ${(order.serviceFee||0.99).toFixed(2)} EUR\n`;
+  txt += `Servicegebuehr:    ${(order.serviceFee||1.00).toFixed(2)} EUR\n`;
   txt += sep + '\n';
   txt += `GESAMT:            ${(order.total||0).toFixed(2)} EUR\n`;
   txt += sep + '\n';
@@ -2834,7 +2834,7 @@ function renderNoCart(){
   updateNoTotals();
 }
 
-const NO_SERVICE_FEE = 0.99;
+const NO_SERVICE_FEE = 1.00;
 
 function updateNoTotals(){
   const subtotal = noCart.reduce((s,i)=>s+i.price*i.qty,0);
