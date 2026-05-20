@@ -759,7 +759,16 @@ let token = sessionStorage.getItem('araratAdminToken') || '';
 let orders = [];
 let selectedId = null;
 let currentFilter = 'all';
-let knownIds = new Set();
+let knownIds = new Set(JSON.parse(localStorage.getItem('araratKnownIds')||'[]'));
+// Täglich zurücksetzen
+(function(){
+  const today = new Date().toDateString();
+  if(localStorage.getItem('araratKnownIdsDate') !== today){
+    knownIds = new Set();
+    localStorage.setItem('araratKnownIds','[]');
+    localStorage.setItem('araratKnownIdsDate', today);
+  }
+})();
 let isOpen = true;
 let currentMode = 'online';
 let manualOverride = false;
@@ -972,8 +981,11 @@ async function loadOrders(){
     updateStripeBadge();
 
     if(isToday){
-      const pendingNewIds = pendingOrders.filter(o=>!knownIds.has(o._id));
-      [...orders, ...pendingOrders].forEach(o=>knownIds.add(o._id));
+      const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+      const todayPending = pendingOrders.filter(o => new Date(o.createdAt) >= todayStart);
+      const pendingNewIds = todayPending.filter(o=>!knownIds.has(o._id));
+      [...orders, ...todayPending].forEach(o=>knownIds.add(o._id));
+      localStorage.setItem('araratKnownIds', JSON.stringify([...knownIds]));
       if(pendingNewIds.length > 0){
         pendingNewIds.forEach(o=>incomingQueue.push(o));
         if(!incomingActive) showNextIncoming();
@@ -986,6 +998,15 @@ async function loadOrders(){
     if(selectedId) renderDetailTab(orders.find(o=>o._id===selectedId));
   } catch(e){ if(e.name!=='AbortError') console.warn('Polling error',e); }
 }
+
+// Sofort laden wenn Tab wieder sichtbar wird (verhindert Throttling-Verzögerung)
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'visible' && token) {
+    clearInterval(pollingTimer);
+    loadOrders();
+    pollingTimer = setInterval(loadOrders, 5000);
+  }
+});
 
 // ─── STATS ────────────────────────────────────────────────────────
 function updateStats(stats, isToday=true, dateVal=''){
