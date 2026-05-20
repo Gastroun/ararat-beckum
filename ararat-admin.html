@@ -596,8 +596,8 @@ html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);colo
               <div class="no-label">Stadt</div>
               <select class="no-input" id="noCity" onchange="updateNoTotals()">
                 <option value="Beckum">Beckum (+2,50)</option>
-                <option value="Roland">Roland (+3,00)</option>
-                <option value="Vellern">Vellern (+3,00)</option>
+                <option value="Roland">Roland (+3,50)</option>
+                <option value="Vellern">Vellern (+3,50)</option>
               </select>
             </div>
           </div>
@@ -2356,13 +2356,13 @@ const NO_MENU = [
     {num:'17', name:'Saray Döner',               price:17.0},
   ]},
   {cat:'🔥 Grill', items:[
-    {num:'18', name:'Tavuk Sis',    price:19.0},
-    {num:'19', name:'Adana Kebab',  price:20.0},
-    {num:'20', name:'Köfte-Teller', price:19.0},
-    {num:'21', name:'Ararat-Teller',price:23.0},
-    {num:'22', name:'Kuzu Sis',     price:20.0},
-    {num:'23', name:'Pirzola',      price:21.0},
-    {num:'24', name:'Grill-Teller', price:25.0},
+    {num:'18', name:'Tavuk Sis',    price:20.0},
+    {num:'19', name:'Adana Kebab',  price:21.0},
+    {num:'20', name:'Köfte-Teller', price:20.0},
+    {num:'21', name:'Ararat-Teller',price:24.0},
+    {num:'22', name:'Kuzu Sis',     price:21.0},
+    {num:'23', name:'Pirzola',      price:22.0},
+    {num:'24', name:'Grill-Teller', price:26.0},
   ]},
   {cat:'🍕 Pizza', items:[
     {num:'25', name:'Pizza Margherita',   price:7.0,  price2:8.5},
@@ -2498,7 +2498,7 @@ let noCurrentOptSelections = {};
 let noCurrentQty = 1;
 let noExtraPrice = 0;
 let noMaxFreeClickOrder = [];
-const DELIVERY_FEES = {Beckum:2.50,Roland:3.00,Vellern:3.00};
+const DELIVERY_FEES = {Beckum:2.50,Roland:3.50,Vellern:3.50};
 
 function openNewOrder(){
   noCart = [];

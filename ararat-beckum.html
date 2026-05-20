@@ -583,7 +583,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);}
             <div class="item-name">Tavuk Sis</div>
             <div class="item-desc">Hähnchenspiess mit Salat und Sauce, Pommes oder Reis</div>
             <div class="item-footer">
-              <span class="item-price">19,00 &euro;</span>
+              <span class="item-price">20,00 &euro;</span>
               <button class="add-btn" onclick="event.stopPropagation();openPopup('grill',0)">+</button>
             </div>
           </div>
@@ -594,7 +594,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);}
             <div class="item-name">Adana Kebab</div>
             <div class="item-desc">Hackfleischspiess (Rinder- und Lammhackfleisch) mit Salat und Sauce, Pommes oder Reis</div>
             <div class="item-footer">
-              <span class="item-price">20,00 &euro;</span>
+              <span class="item-price">21,00 &euro;</span>
               <button class="add-btn" onclick="event.stopPropagation();openPopup('grill',1)">+</button>
             </div>
           </div>
@@ -605,7 +605,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);}
             <div class="item-name">Köfte-Teller</div>
             <div class="item-desc">Frikadellen (Rinderhackfleisch) mit Salat und Sauce, Pommes oder Reis</div>
             <div class="item-footer">
-              <span class="item-price">19,00 &euro;</span>
+              <span class="item-price">20,00 &euro;</span>
               <button class="add-btn" onclick="event.stopPropagation();openPopup('grill',2)">+</button>
             </div>
           </div>
@@ -616,7 +616,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);}
             <div class="item-name">Ararat-Teller</div>
             <div class="item-desc">Verschiedene Fleischsorten mit Salat und Sauce, Pommes oder Reis</div>
             <div class="item-footer">
-              <span class="item-price">23,00 &euro;</span>
+              <span class="item-price">24,00 &euro;</span>
               <button class="add-btn" onclick="event.stopPropagation();openPopup('grill',3)">+</button>
             </div>
           </div>
@@ -627,7 +627,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);}
             <div class="item-name">Kuzu Sis</div>
             <div class="item-desc">Lammspieß mit Salat und Sauce, Pommes oder Reis</div>
             <div class="item-footer">
-              <span class="item-price">20,00 &euro;</span>
+              <span class="item-price">21,00 &euro;</span>
               <button class="add-btn" onclick="event.stopPropagation();openPopup('grill',4)">+</button>
             </div>
           </div>
@@ -638,7 +638,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);}
             <div class="item-name">Pirzola</div>
             <div class="item-desc">Lammkoteletts mit Salat und Sauce, Pommes oder Reis</div>
             <div class="item-footer">
-              <span class="item-price">21,00 &euro;</span>
+              <span class="item-price">22,00 &euro;</span>
               <button class="add-btn" onclick="event.stopPropagation();openPopup('grill',5)">+</button>
             </div>
           </div>
@@ -649,7 +649,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);}
             <div class="item-name">Grill-Teller</div>
             <div class="item-desc">Verschiedene Fleischsorten und Lammkotelett mit Salat und Sauce, Pommes oder Reis</div>
             <div class="item-footer">
-              <span class="item-price">25,00 &euro;</span>
+              <span class="item-price">26,00 &euro;</span>
               <button class="add-btn" onclick="event.stopPropagation();openPopup('grill',6)">+</button>
             </div>
           </div>
@@ -2023,8 +2023,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);}
           <select class="co-input" id="coCity" onchange="onCityChange()">
             <option value="">-- Bitte wählen --</option>
             <option value="Beckum">Beckum (ab 25,00 € · 2,50 € Fahrt)</option>
-            <option value="Roland">Roland (ab 30,00 € · 3,00 € Fahrt)</option>
-            <option value="Vellern">Vellern (ab 30,00 € · 3,00 € Fahrt)</option>
+            <option value="Roland">Roland (ab 30,00 € · 3,50 € Fahrt)</option>
+            <option value="Vellern">Vellern (ab 30,00 € · 3,50 € Fahrt)</option>
           </select>
         </div>
       </div>
@@ -2267,13 +2267,13 @@ const MENU = {
     {allergens:['A', 'G'],zusatz:[3, 4, 6],name:'Saray Döner',desc:'Dönerfleisch nach Wahl, Reis, Spezialsauce, Sauce Hollandaise und mit Gouda überbacken',price:17.0,num:'17'},
   ],
   grill: [
-    {allergens:['G'],zusatz:[3],name:'Tavuk Sis',desc:'Hähnchenspiess mit Salat und Sauce, Pommes oder Reis',price:19.0,num:'18'},
-    {allergens:['G'],zusatz:[3],name:'Adana Kebab',desc:'Hackfleischspiess (Rinder- und Lammhackfleisch) mit Salat und Sauce, Pommes oder Reis',price:20.0,num:'19'},
-    {allergens:['G'],zusatz:[3],name:'Köfte-Teller',desc:'Frikadellen (Rinderhackfleisch) mit Salat und Sauce, Pommes oder Reis',price:19.0,num:'20'},
-    {allergens:['G'],zusatz:[3, 4],name:'Ararat-Teller',desc:'Verschiedene Fleischsorten mit Salat und Sauce, Pommes oder Reis',price:23.0,num:'21'},
-    {allergens:['D','G'],zusatz:[3],name:'Kuzu Sis',desc:'Lammspieß mit Salat und Sauce, Pommes oder Reis',price:20.0,num:'22'},
-    {allergens:['G'],zusatz:[3],name:'Pirzola',desc:'Lammkoteletts mit Salat und Sauce, Pommes oder Reis',price:21.0,num:'23'},
-    {allergens:['G'],zusatz:[3, 4],name:'Grill-Teller',desc:'Verschiedene Fleischsorten und Lammkotelett mit Salat und Sauce, Pommes oder Reis',price:25.0,num:'24'},
+    {allergens:['G'],zusatz:[3],name:'Tavuk Sis',desc:'Hähnchenspiess mit Salat und Sauce, Pommes oder Reis',price:20.0,num:'18'},
+    {allergens:['G'],zusatz:[3],name:'Adana Kebab',desc:'Hackfleischspiess (Rinder- und Lammhackfleisch) mit Salat und Sauce, Pommes oder Reis',price:21.0,num:'19'},
+    {allergens:['G'],zusatz:[3],name:'Köfte-Teller',desc:'Frikadellen (Rinderhackfleisch) mit Salat und Sauce, Pommes oder Reis',price:20.0,num:'20'},
+    {allergens:['G'],zusatz:[3, 4],name:'Ararat-Teller',desc:'Verschiedene Fleischsorten mit Salat und Sauce, Pommes oder Reis',price:24.0,num:'21'},
+    {allergens:['D','G'],zusatz:[3],name:'Kuzu Sis',desc:'Lammspieß mit Salat und Sauce, Pommes oder Reis',price:21.0,num:'22'},
+    {allergens:['G'],zusatz:[3],name:'Pirzola',desc:'Lammkoteletts mit Salat und Sauce, Pommes oder Reis',price:22.0,num:'23'},
+    {allergens:['G'],zusatz:[3, 4],name:'Grill-Teller',desc:'Verschiedene Fleischsorten und Lammkotelett mit Salat und Sauce, Pommes oder Reis',price:26.0,num:'24'},
   ],
   pizza: [
     {allergens:['A','D'],zusatz:[6],name:'Pizza Margherita',desc:'Tomatensauce, Gouda, Oregano',price:7.0,price2:8.5,num:'25'},
@@ -2930,8 +2930,8 @@ const SERVICE_FEE = 1.00;
 
 const DELIVERY_CITIES = {
   'Beckum':  {min:20.00, fee:2.50},
-  'Roland':  {min:24.00, fee:2.50},
-  'Vellern': {min:24.00, fee:2.50},
+  'Roland':  {min:24.00, fee:3.50},
+  'Vellern': {min:24.00, fee:3.50},
 };
 
 let coMode = 'lieferung';
