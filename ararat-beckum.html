@@ -3152,7 +3152,7 @@ async function finishOrder({email, first, last, city, street, house}={}){
       street: coMode==='lieferung'?street:'',
       house: coMode==='lieferung'?house:'',
     },
-    items: cart.map(i=>({name:i.name,price:i.price,qty:i.qty,note:i._isCola?'gratis':i.note||''})),
+    items: cart.map(i=>({name:i.name,price:i.price,qty:i.qty,note:i._isCola?'gratis':i.note||'',extraDetails:i.extraDetails||[]})),
     subtotal, deliveryFee:fee, serviceFee, total,
     note: document.getElementById('coNote').value.trim(),
     promoCode:(document.getElementById('coPromoCode')?.value||'').trim()||undefined,
