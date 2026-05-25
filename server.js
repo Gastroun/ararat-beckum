@@ -850,7 +850,10 @@ async function sendConfirmationEmail(order, estimatedMinutes) {
       ? `${order.customer.street} ${order.customer.house}, ${order.customer.city}`
       : 'Nordwall 45, 59269 Beckum';
     const itemsHtml = (order.items || [])
-      .map(i => `<tr><td>${i.qty}×</td><td>${i.name}${i.note ? ' <em>('+i.note+')</em>' : ''}</td><td style="text-align:right">${(i.price*i.qty).toFixed(2).replace('.',',')} €</td></tr>`)
+      .map(i => {
+        const extras = (i.extraDetails||[]).map(e => `<tr><td></td><td style="font-size:12px;color:#777;padding-left:12px;">↳ ${e.name}</td><td></td></tr>`).join('');
+        return `<tr><td>${i.qty}×</td><td>${i.name}${i.note ? ' <em>('+i.note+')</em>' : ''}</td><td style="text-align:right">${(i.price*i.qty).toFixed(2).replace('.',',')} €</td></tr>${extras}`;
+      })
       .join('');
 
     await getResend()?.emails.send({
@@ -904,7 +907,10 @@ async function sendRestaurantEmail(order) {
   if (!process.env.RESTAURANT_EMAIL) return;
   try {
     const itemsList = (order.items || [])
-      .map(i => `${i.qty}× ${i.name}${i.note?' ('+i.note+')':''}`)
+      .map(i => {
+        const extras = (i.extraDetails||[]).map(e => `  ↳ ${e.name}`).join('\n');
+        return `${i.qty}× ${i.name}${i.note?' ('+i.note+')':''}${extras?'\n'+extras:''}`;
+      })
       .join('\n');
     await getResend()?.emails.send({
       from: process.env.EMAIL_FROM || 'bestellungen@ararat-grill.de',
