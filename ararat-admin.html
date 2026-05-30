@@ -390,6 +390,10 @@ html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);colo
     <div class="login-logo">🔥 Ararat Grill</div>
     <div class="login-sub">Admin Dashboard · Beckum</div>
     <input type="password" id="loginPw" placeholder="Passwort eingeben..." onkeydown="if(event.key==='Enter')doLogin()">
+    <label style="display:flex;align-items:center;gap:8px;color:var(--muted);font-size:.82rem;margin-bottom:12px;cursor:pointer;user-select:none;">
+      <input type="checkbox" id="rememberPw" style="width:auto;margin:0;accent-color:var(--gold);">
+      Passwort auf diesem Gerät merken
+    </label>
     <button class="login-btn" onclick="doLogin()">Anmelden →</button>
     <div class="login-err" id="loginErr">Falsches Passwort</div>
   </div>
@@ -781,7 +785,12 @@ let stripeOrders = [];
 // ─── AUTH ─────────────────────────────────────────────────────────
 async function doLogin(){
   const pw = document.getElementById('loginPw').value;
+  const remember = document.getElementById('rememberPw').checked;
   document.getElementById('loginErr').style.display='none';
+  const onSuccess = () => {
+    if(remember) localStorage.setItem('araratSavedPw', pw);
+    else localStorage.removeItem('araratSavedPw');
+  };
   try{
     const res = await fetch(API_BASE+'/admin/login',{
       method:'POST',headers:{'Content-Type':'application/json'},
@@ -791,28 +800,35 @@ async function doLogin(){
       const d = await res.json();
       token = d.token;
       sessionStorage.setItem('araratAdminToken',token);
-      startApp();
+      onSuccess(); startApp();
     } else {
-      // Also try local password check as fallback
       if(pw===DASHBOARD_PASSWORD){
         token = ADMIN_API_TOKEN;
         sessionStorage.setItem('araratAdminToken',token);
-        startApp();
+        onSuccess(); startApp();
       } else {
         document.getElementById('loginErr').style.display='block';
       }
     }
   } catch(e){
-    // Offline fallback
     if(pw===DASHBOARD_PASSWORD){
       token=ADMIN_API_TOKEN;
       sessionStorage.setItem('araratAdminToken',token);
-      startApp();
+      onSuccess(); startApp();
     } else {
       document.getElementById('loginErr').style.display='block';
     }
   }
 }
+
+// Auto-Fill gespeichertes Passwort beim Laden
+(function(){
+  const saved = localStorage.getItem('araratSavedPw');
+  if(saved){
+    document.getElementById('loginPw').value = saved;
+    document.getElementById('rememberPw').checked = true;
+  }
+})();
 
 function doLogout(){
   sessionStorage.removeItem('araratAdminToken');
