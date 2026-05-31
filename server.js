@@ -1059,11 +1059,14 @@ function calcAutoMode() {
   const mins = h * 60 + m;
   const wd   = new Date(year, mon - 1, day).getDay(); // 0=So, 1=Mo, ..., 6=Sa
 
-  // Sonntag & Montag = Ruhetag
-  if (wd === 0 || wd === 1) return 'geschlossen';
+  // Montag = Ruhetag
+  if (wd === 1) return 'geschlossen';
 
-  // Di–Sa: 12:00–22:00
-  return (mins >= 12*60 && mins < 22*60) ? 'online' : 'geschlossen';
+  // Sonntag: 13:00–21:30
+  if (wd === 0) return (mins >= 13*60 && mins < 21*60+30) ? 'online' : 'geschlossen';
+
+  // Di–Sa: 11:00–22:00
+  return (mins >= 11*60 && mins < 22*60) ? 'online' : 'geschlossen';
 }
 
 // Cron: jede Minute Auto-Modus aktualisieren (wenn nicht manuell)
