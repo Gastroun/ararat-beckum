@@ -1201,7 +1201,7 @@ cron.schedule('0 22 * * *', async () => {
 
 // ─── WOCHENBERICHT (Sonntag 23:59) ────────────────────────────────
 // WOCHENBERICHT (jeden Sonntag 23:59)
-cron.schedule('59 23 * * 0', async () => {
+cron.schedule('0 22 * * 0', async () => {
   try {
     const now    = new Date();
     const wStart = new Date(now); wStart.setDate(now.getDate()-6); wStart.setHours(0,0,0,0);
@@ -1350,8 +1350,8 @@ cron.schedule('59 23 * * 0', async () => {
   } catch(e) { console.error('Wochenbericht Fehler:', e); }
 });
 
-// ─── MONATSBERICHT (letzter Tag des Monats, 23:58) ────────────────
-cron.schedule('58 23 * * *', async () => {
+// ─── MONATSBERICHT (letzter Tag des Monats, 22:00) ────────────────
+cron.schedule('0 22 * * *', async () => {
   const now = new Date();
   const tomorrow = new Date(now); tomorrow.setDate(now.getDate()+1);
   if (tomorrow.getDate() !== 1) return;
