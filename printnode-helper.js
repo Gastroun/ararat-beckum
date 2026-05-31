@@ -215,18 +215,6 @@ function buildDailyReport(data) {
   r += padLine('  Karte / Online:', `${nCard}`) + LF;
   r += SEP;
 
-  if (orders.length > 0) {
-    orders.forEach(o => {
-      const time = new Date(o.createdAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-      const name = ((o.customer?.first || '') + ' ' + (o.customer?.last || '')).trim() || '–';
-      const art  = o.mode === 'lieferung' ? 'Lief.' : 'Abh.';
-      const betrag = (o.total || 0).toFixed(2).replace('.', ',') + ' EUR';
-      const left = `#${o.orderNum} ${time} ${art} ${name}`.substring(0, 36);
-      r += padLine(left, betrag) + LF;
-    });
-    r += SEP;
-  }
-
   r += BOLD_ON + DOUBLE_ON;
   r += padLine('GESAMTUMSATZ:', total.toFixed(2).replace('.', ',') + ' EUR') + LF;
   r += DOUBLE_OFF + BOLD_OFF;
