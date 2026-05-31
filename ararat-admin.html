@@ -1869,34 +1869,12 @@ async function printDayReport(){
   const nDel   = dayOrders.filter(o=>o.mode==='lieferung').length;
   const nPick  = dayOrders.filter(o=>o.mode==='abholung').length;
 
-  const w = window.open('','_blank','width=520,height=750');
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Tagesabschluss ${label}</title>
-  <style>body{font-family:monospace;font-size:12px;max-width:400px;margin:0 auto;padding:16px;}h2{text-align:center;margin-bottom:2px;}h3{text-align:center;margin-top:0;}hr{border:none;border-top:1px dashed #000;margin:8px 0;}table{width:100%;border-collapse:collapse;}td,th{padding:3px 4px;}.sum{font-weight:bold;font-size:13px;}</style></head><body>
-  <h2>🔥 ARARAT GRILL</h2>
-  <h3>Tagesabschluss</h3>
-  <p style="text-align:center;margin:0 0 6px">${label}</p>
-  <hr>
-  <table>
-    <tr><td>Bestellungen gesamt</td><td align="right"><b>${dayOrders.length}</b></td></tr>
-    <tr><td>&nbsp;&nbsp;davon Lieferung</td><td align="right">${nDel}</td></tr>
-    <tr><td>&nbsp;&nbsp;davon Abholung</td><td align="right">${nPick}</td></tr>
-    <tr><td>&nbsp;&nbsp;Barzahlung</td><td align="right">${nBar}</td></tr>
-    <tr><td>&nbsp;&nbsp;Karte / Online</td><td align="right">${nCard}</td></tr>
-  </table>
-  <hr>
-  <table>
-    <tr><th align="left">Nr</th><th align="left">Zeit</th><th align="left">Kunde</th><th align="left">Art</th><th align="right">Betrag</th></tr>
-    ${dayOrders.map(o=>`<tr><td>#${o.orderNum}</td><td>${new Date(o.createdAt).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})}</td><td>${(o.customer?.first||'')+' '+(o.customer?.last||'')}</td><td>${o.mode==='lieferung'?'Lief.':'Abh.'}</td><td align="right">${(o.total||0).toFixed(2).replace('.',',')} €</td></tr>`).join('')}
-  </table>
-  <hr>
-  <table>
-    <tr class="sum"><td>GESAMTUMSATZ</td><td align="right">${total.toFixed(2).replace('.',',')} €</td></tr>
-  </table>
-  <hr>
-  <p style="text-align:center;font-size:11px;">Gedruckt: ${new Date().toLocaleString('de-DE')}</p>
-  </body></html>`);
-  w.document.close();
-  setTimeout(()=>w.print(),500);
+  try {
+    await api('/admin/print-tagesabschluss', 'POST', { dateStr, label });
+    showToast('🖨️ Tagesabschluss wird gedruckt…');
+  } catch(e) {
+    showToast('❌ Druckfehler: ' + (e.message || 'Unbekannt'));
+  }
 }
 
 // ─── ALERT & SOUND ────────────────────────────────────────────────

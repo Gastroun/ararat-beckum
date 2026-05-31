@@ -837,6 +837,32 @@ app.post('/api/admin/orders/:id/print', authMiddleware, async (req, res) => {
   }
 });
 
+app.post('/api/admin/print-tagesabschluss', authMiddleware, async (req, res) => {
+  try {
+    const { dateStr, label } = req.body;
+    const from = new Date(dateStr + 'T00:00:00');
+    const to   = new Date(dateStr + 'T23:59:59');
+    const orders = await Order.find({
+      createdAt: { $gte: from, $lte: to },
+      status: { $nin: ['cancelled'] }
+    }).sort({ orderNum: 1 });
+
+    const total  = orders.reduce((s, o) => s + (o.total || 0), 0);
+    const nBar   = orders.filter(o => o.payment === 'bar').length;
+    const nCard  = orders.filter(o => o.payment === 'karte' || o.payment === 'stripe').length;
+    const nDel   = orders.filter(o => o.mode === 'lieferung').length;
+    const nPick  = orders.filter(o => o.mode === 'abholung').length;
+    const printedAt = new Date().toLocaleString('de-DE');
+
+    const printHelper = require('./printnode-helper');
+    await printHelper.printDailyReport({ label, orders, total, nBar, nCard, nDel, nPick, printedAt });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Tagesabschluss Druckfehler:', err);
+    res.status(500).json({ message: 'Druckfehler' });
+  }
+});
+
 // ═══════════════════════════════════════════════════════════════════
 // E-MAIL FUNKTIONEN (via Resend)
 // ═══════════════════════════════════════════════════════════════════
