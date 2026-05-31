@@ -306,7 +306,7 @@ const Availability = mongoose.model('Availability', availabilitySchema);
 // ─── ROLLNCONE GEWINNSPIEL ───────────────────────────────────────
 const ROLLNCONE_CODE  = 'ROLLNCONE';
 const ROLLNCONE_START = new Date('2026-04-29T00:00:00+02:00');
-const ROLLNCONE_END   = new Date('2026-06-30T23:59:59+02:00');
+const ROLLNCONE_END   = new Date('2026-05-29T23:59:59+02:00');
 
 function validateRollnconeCode(raw) {
   const code = (raw || '').trim().toUpperCase();
@@ -331,7 +331,7 @@ app.post('/api/validate-promo-code', (req, res) => {
   const messages = {
     invalid:     'Ungültiger Code.',
     not_started: 'Die Aktion hat noch nicht begonnen.',
-    expired:     'Aktion abgelaufen (gültig 29.04.–30.06.2026).',
+    expired:     'Aktion abgelaufen (gültig 29.04.–29.05.2026).',
   };
   res.json({ valid: false, message: messages[result.reason] || 'Ungültiger Code.' });
 });
@@ -1014,7 +1014,7 @@ async function sendRaffleEmail(order) {
             <p>vielen Dank für deine Bestellung mit dem Aktionscode <strong>ROLLNCONE</strong> – deine Teilnahme am Gewinnspiel ist erfolgreich registriert!</p>
             <div style="background:#fff3ea;border-left:4px solid #c0281a;border-radius:6px;padding:16px 20px;margin:20px 0;">
               <p style="margin:0 0 6px;font-weight:bold;color:#3d1a08;">Aktionszeitraum</p>
-              <p style="margin:0;font-size:15px;">29.04.2026 – 30.06.2026</p>
+              <p style="margin:0;font-size:15px;">29.04.2026 – 29.05.2026</p>
             </div>
             <p>Nach Ende des Aktionszeitraums wird der Gewinner ausgelost und direkt benachrichtigt.</p>
             <p>Viel Glück! 🍀</p>
@@ -1024,7 +1024,7 @@ async function sendRaffleEmail(order) {
             Ararat Grill · Nordwall 45 · 59269 Beckum · Tel: 02521-9009414
           </div>
         </div>`,
-      text: `Hallo ${customerName},\n\nvielen Dank für deine Bestellung mit dem Aktionscode ROLLNCONE – deine Teilnahme am Gewinnspiel ist erfolgreich registriert!\n\nAktionszeitraum: 29.04.2026 – 30.06.2026\n\nNach Ende des Aktionszeitraums wird der Gewinner ausgelost und direkt benachrichtigt.\n\nViel Glück!\n\nDeine Bestellnummer: #${order.orderNum}\n\nArarat Grill · Nordwall 45 · 59269 Beckum`,
+      text: `Hallo ${customerName},\n\nvielen Dank für deine Bestellung mit dem Aktionscode ROLLNCONE – deine Teilnahme am Gewinnspiel ist erfolgreich registriert!\n\nAktionszeitraum: 29.04.2026 – 29.05.2026\n\nNach Ende des Aktionszeitraums wird der Gewinner ausgelost und direkt benachrichtigt.\n\nViel Glück!\n\nDeine Bestellnummer: #${order.orderNum}\n\nArarat Grill · Nordwall 45 · 59269 Beckum`,
     });
     console.log(`🎉 Gewinnspiel-E-Mail gesendet an ${order.customer.email}`);
   } catch (err) {
