@@ -323,7 +323,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);}
 
 <div id="gratisGetraenkBanner" style="background:linear-gradient(135deg,#8b0000,#b71c1c);color:#fff;text-align:center;padding:13px 20px;font-size:14px;font-weight:bold;line-height:1.7;position:sticky;top:63px;z-index:95;display:none;">
   🥤 <span style="font-size:16px;">Gratis-Getränk bei jeder Bestellung ab 25 €!</span> 🥤<br>
-  <span style="font-size:12px;opacity:.9;font-weight:normal;">1. Mai – 30. Juni · ohne Liefer- &amp; Servicegebühren · Cola · Cola Zero · Mezzo Mix · Fanta · Sprite · Uludag · Ayran · Mineralwasser</span>
+  <span style="font-size:12px;opacity:.9;font-weight:normal;">1. Mai – 30. Juni · Cola · Cola Zero · Mezzo Mix · Fanta · Sprite · Uludag · Ayran · Mineralwasser</span>
 </div>
 
 <section class="hero">
@@ -2023,8 +2023,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);}
           <select class="co-input" id="coCity" onchange="onCityChange()">
             <option value="">-- Bitte wählen --</option>
             <option value="Beckum">Beckum (ab 25,00 € · 2,50 € Fahrt)</option>
-            <option value="Roland">Roland (ab 30,00 € · 3,50 € Fahrt)</option>
-            <option value="Vellern">Vellern (ab 30,00 € · 3,50 € Fahrt)</option>
+            <option value="Roland">Roland (ab 25,00 € · 3,50 € Fahrt)</option>
+            <option value="Vellern">Vellern (ab 25,00 € · 3,50 € Fahrt)</option>
+            <option value="Neubeckum">Neubeckum (ab 25,00 € · 4,00 € Fahrt)</option>
           </select>
         </div>
       </div>
@@ -2931,9 +2932,10 @@ const API_BASE = 'https://ararat-beckum-nfww.onrender.com/api';
 const SERVICE_FEE = 1.00;
 
 const DELIVERY_CITIES = {
-  'Beckum':  {min:20.00, fee:2.50},
-  'Roland':  {min:24.00, fee:3.50},
-  'Vellern': {min:24.00, fee:3.50},
+  'Beckum':  {min:25.00, fee:2.50},
+  'Roland':  {min:25.00, fee:3.50},
+  'Vellern': {min:25.00, fee:3.50},
+  'Neubeckum': {min:25.00, fee:4.00},
 };
 
 let coMode = 'lieferung';
@@ -3392,7 +3394,7 @@ const LEGAL_CONTENT = {
       <h3>§ 3 Preise &amp; Zahlung (PAngV)</h3>
       <p>Alle Preise sind Endpreise inkl. gesetzlicher MwSt. (7 % Speisen, 19 % Getränke). Lieferkosten werden vor Abschluss der Bestellung separat ausgewiesen. Es werden keine Aufschläge auf Zahlungsarten erhoben (§ 270a BGB).</p>
       <h3>§ 4 Lieferbedingungen</h3>
-      <p>Liefergebiet: Beckum, Roland, Vellern. Mindestbestellwert: Beckum 25,00 € · Roland/Vellern 30,00 €. Lieferzeiten Di–So 16:00–21:00 Uhr. Voraussichtliche Lieferzeit ca. 35 Minuten.</p>
+      <p>Liefergebiet: Beckum, Roland, Vellern, Neubeckum. Mindestbestellwert: 25,00 € (alle Orte). Lieferzeiten Di–So 16:00–21:00 Uhr. Voraussichtliche Lieferzeit ca. 35 Minuten.</p>
       <h3>§ 5 Widerrufsrecht</h3>
       <p>Bei frisch zubereiteten Speisen und Getränken besteht gemäß § 312g Abs. 2 Nr. 2 BGB kein Widerrufsrecht, da es sich um schnell verderbliche Waren handelt. Eine kostenlose Stornierung ist nur innerhalb von 5 Minuten nach Bestelleingang möglich. Bei Qualitätsmängeln oder Falschlieferung gilt das Gewährleistungsrecht (§ 437 BGB).</p>
       <h3>§ 6 Haftung</h3>
