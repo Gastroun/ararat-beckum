@@ -330,7 +330,7 @@ html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);colo
 
 /* TIME BUTTONS */
 .incoming-time-title{font-size:.78rem;color:var(--muted);margin-bottom:10px;text-align:center;}
-.incoming-time-btns{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;}
+.incoming-time-btns{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;}
 .time-btn{background:var(--bg3);border:2px solid var(--border);border-radius:10px;padding:14px 8px;text-align:center;cursor:pointer;transition:all .2s;font-family:inherit;}
 .time-btn:hover{border-color:var(--gold);}
 .time-btn.selected{background:rgba(192,40,26,.2);border-color:var(--gold);}
@@ -680,6 +680,12 @@ html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);colo
       <div class="incoming-section" style="margin-top:20px;">
         <div class="incoming-time-title">⏱️ Voraussichtliche Zeit bis zur Lieferung / Abholung:</div>
         <div class="incoming-time-btns">
+          <div class="time-btn" onclick="selectTime(10,this)">
+            <div class="tb-min">10</div><div class="tb-label">Minuten</div>
+          </div>
+          <div class="time-btn" onclick="selectTime(15,this)">
+            <div class="tb-min">15</div><div class="tb-label">Minuten</div>
+          </div>
           <div class="time-btn" onclick="selectTime(30,this)">
             <div class="tb-min">30</div><div class="tb-label">Minuten</div>
           </div>
@@ -781,6 +787,14 @@ let pollingTimer = null;
 let loadOrdersCtrl  = null;
 let dateChangeTimer = null;
 let stripeOrders = [];
+
+// Bildschirm dauerhaft anlassen (Tablet/Kiosk) – Wake Lock wird beim Screen-Off/Tab-Wechsel
+// automatisch freigegeben und muss neu angefordert werden (siehe visibilitychange).
+let wakeLock = null;
+async function keepScreenOn(){
+  try { if('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); }
+  catch(e){}
+}
 
 // ─── AUTH ─────────────────────────────────────────────────────────
 async function doLogin(){
@@ -943,6 +957,7 @@ function startApp(){
   document.getElementById('app').style.flexDirection='column';
   document.getElementById('app').style.height='100vh';
   document.getElementById('reportDate').value = new Date().toISOString().slice(0,10);
+  keepScreenOn();
   startClock();
   loadAvailability();
   loadRestaurantStatus();
@@ -1018,6 +1033,7 @@ async function loadOrders(){
 // Sofort laden wenn Tab wieder sichtbar wird (verhindert Throttling-Verzögerung)
 document.addEventListener('visibilitychange', () => {
   if(document.visibilityState === 'visible' && token) {
+    keepScreenOn(); // Wake Lock nach Screen-Off/Tab-Wechsel erneut anfordern
     clearInterval(pollingTimer);
     loadOrders();
     pollingTimer = setInterval(loadOrders, 5000);
