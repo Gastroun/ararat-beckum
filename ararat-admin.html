@@ -755,14 +755,7 @@ html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);colo
 <script>
 // ─── CONFIG ───────────────────────────────────────────────────────
 const API_BASE = 'https://ararat-beckum-nfww.onrender.com/api';
-const DASHBOARD_PASSWORD = 'Ararat2025Admin!';
-const ADMIN_API_TOKEN = 'AraratGeheimToken2025xyzABCDEFGHIJKLMNOP';
-
-// Ungültigen gespeicherten Token automatisch löschen
-(function(){
-  const saved = sessionStorage.getItem('araratAdminToken');
-  if (saved && saved !== ADMIN_API_TOKEN) sessionStorage.removeItem('araratAdminToken');
-})();
+// Kein Passwort/Token mehr im Client – Login & Token-Vergabe laufen serverseitig.
 
 // ─── STATE ────────────────────────────────────────────────────────
 let token = sessionStorage.getItem('araratAdminToken') || '';
@@ -816,22 +809,10 @@ async function doLogin(){
       sessionStorage.setItem('araratAdminToken',token);
       onSuccess(); startApp();
     } else {
-      if(pw===DASHBOARD_PASSWORD){
-        token = ADMIN_API_TOKEN;
-        sessionStorage.setItem('araratAdminToken',token);
-        onSuccess(); startApp();
-      } else {
-        document.getElementById('loginErr').style.display='block';
-      }
-    }
-  } catch(e){
-    if(pw===DASHBOARD_PASSWORD){
-      token=ADMIN_API_TOKEN;
-      sessionStorage.setItem('araratAdminToken',token);
-      onSuccess(); startApp();
-    } else {
       document.getElementById('loginErr').style.display='block';
     }
+  } catch(e){
+    document.getElementById('loginErr').style.display='block';
   }
 }
 
@@ -1903,6 +1884,7 @@ function dismissAlert(){document.getElementById('alertBanner').classList.remove(
 // Dauerhafter Alarm – läuft in Schleife bis stopAlarm() aufgerufen wird
 let alarmInterval = null;
 let alarmCtx = null;
+let alarmCapTimer = null;
 
 function startAlarm(){
   if(alarmInterval) return; // Läuft schon
@@ -1933,10 +1915,13 @@ function startAlarm(){
   }
   beepOnce();
   alarmInterval = setInterval(beepOnce, 1800);
+  // Sicherheits-Obergrenze: nach 5 Min automatisch stoppen (kein Endlos-Klingeln)
+  alarmCapTimer = setTimeout(stopAlarm, 5 * 60 * 1000);
 }
 
 function stopAlarm(){
   if(alarmInterval){ clearInterval(alarmInterval); alarmInterval = null; }
+  if(alarmCapTimer){ clearTimeout(alarmCapTimer); alarmCapTimer = null; }
 }
 
 function playBeep(){ startAlarm(); } // Kompatibilität

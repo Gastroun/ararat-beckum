@@ -5,6 +5,7 @@ const Stripe = require('stripe');
 const { Resend } = require('resend');
 const cron = require('node-cron');
 const PDFDocument = require('pdfkit');
+const crypto = require('crypto');
 require('dotenv').config();
 
 const app = express();
@@ -48,6 +49,14 @@ app.use('/api/stripe-webhook', express.raw({ type: 'application/json' }));
 
 // ─── JSON BODY ───────────────────────────────────────────────────
 app.use(express.json());
+
+// ─── Security-Header (ohne Extra-Dependency) ─────────────────────
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
 
 // ─── MONGODB ─────────────────────────────────────────────────────
 mongoose.connect(process.env.MONGODB_URI)
@@ -276,14 +285,25 @@ function pdfBarRechnung(doc, barOrders, barStats, zeitraum, rgnr) {
 }
 
 // ─── AUTH MIDDLEWARE ──────────────────────────────────────────────
+// Admin-Sitzungen serverseitig (in-memory, ohne Extra-Dependency). Login vergibt einen
+// zufälligen Token mit 12 h Ablauf – kein statischer Token mehr im Client.
+const adminSessions = new Map(); // token -> Ablaufzeitpunkt (ms)
+const SESSION_MS = 12 * 60 * 60 * 1000;
+function createAdminSession() {
+  const t = crypto.randomBytes(32).toString('hex');
+  adminSessions.set(t, Date.now() + SESSION_MS);
+  return t;
+}
 function authMiddleware(req, res, next) {
   const auth = req.headers.authorization;
   if (!auth || !auth.startsWith('Bearer ')) {
     return res.status(401).json({ message: 'Nicht autorisiert' });
   }
   const token = auth.split(' ')[1];
-  if (token !== process.env.ADMIN_TOKEN_SECRET) {
-    return res.status(401).json({ message: 'Ungültiger Token' });
+  const exp = adminSessions.get(token);
+  if (!exp || exp < Date.now()) {
+    adminSessions.delete(token);
+    return res.status(401).json({ message: 'Sitzung abgelaufen' });
   }
   next();
 }
@@ -603,10 +623,26 @@ app.patch('/api/admin/status', authMiddleware, async (req, res) => {
 });
 
 // ── Admin Login ────────────────────────────────────────────────────
-app.post('/api/admin/login', (req, res) => {
+// Einfacher Brute-Force-Schutz (in-memory, ohne Extra-Dependency): max. 10 Versuche / 15 Min / IP
+const loginAttempts = new Map();
+function loginRateLimit(req, res, next) {
+  const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip || 'unknown';
+  const now = Date.now(), WIN = 15 * 60 * 1000;
+  const rec = loginAttempts.get(ip);
+  if (rec && now - rec.first < WIN && rec.count >= 10) {
+    return res.status(429).json({ message: 'Zu viele Versuche. Bitte in 15 Minuten erneut.' });
+  }
+  if (!rec || now - rec.first >= WIN) loginAttempts.set(ip, { count: 1, first: now });
+  else rec.count++;
+  req._loginIp = ip;
+  next();
+}
+
+app.post('/api/admin/login', loginRateLimit, (req, res) => {
   const { password } = req.body;
   if (password === process.env.ADMIN_PASSWORD) {
-    res.json({ token: process.env.ADMIN_TOKEN_SECRET });
+    loginAttempts.delete(req._loginIp);
+    res.json({ token: createAdminSession() });
   } else {
     res.status(401).json({ message: 'Falsches Passwort' });
   }
