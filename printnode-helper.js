@@ -168,14 +168,14 @@ async function printDailyReport(data) {
     },
     body: JSON.stringify({
       printer: parseInt(process.env.PRINTNODE_PRINTER_ID),
-      title: `Ararat Grill Tagesabschluss ${data.label}`,
+      title: `Ararat Grill ${data.title || 'Tagesabschluss'} ${data.label}`,
       contentType: 'raw_base64',
       content: base64Content,
       source: 'Ararat Grill Backend'
     })
   });
   if (response.ok) {
-    console.log(`🖨️ Tagesabschluss gedruckt: ${data.label}`);
+    console.log(`🖨️ ${data.title || 'Tagesabschluss'} gedruckt: ${data.label}`);
   } else {
     const err = await response.text();
     console.error('PrintNode Fehler:', err);
@@ -203,7 +203,7 @@ function buildDailyReport(data) {
 
   r += CENTER;
   r += DOUBLE_ON + BOLD_ON + 'ARARAT GRILL' + LF + DOUBLE_OFF + BOLD_OFF;
-  r += 'Tagesabschluss' + LF;
+  r += (data.title || 'Tagesabschluss') + LF;
   r += label + LF;
   r += SEP;
 

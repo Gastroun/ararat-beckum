@@ -504,6 +504,7 @@ html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);colo
           <button type="button" class="day-print-btn" onclick="shiftDate(1)" title="Nächster Tag">→</button>
         </div>
         <button class="day-print-btn" onclick="printDayReport()">🖨️ Tagesabschluss</button>
+        <button class="day-print-btn" onclick="printMonthReport()">📅 Monatsabschluss</button>
       </div>
       <div class="orders-list" id="ordersList"></div>
     </div>
@@ -957,6 +958,8 @@ function startApp(){
   document.getElementById('app').style.flexDirection='column';
   document.getElementById('app').style.height='100vh';
   document.getElementById('reportDate').value = new Date().toISOString().slice(0,10);
+  dashToday = new Date().toISOString().slice(0,10);
+  setInterval(checkDayRollover, 30000); // Tablet laeuft 24/7 -> Mitternachts-Wechsel erkennen
   keepScreenOn();
   startClock();
   loadAvailability();
@@ -967,6 +970,21 @@ function startApp(){
   checkEpos();
   checkRawbt();
   setInterval(()=>{ checkEpos(); checkRawbt(); }, 30000);
+}
+
+// Tablet läuft durch → bei Tageswechsel den Datums-Picker automatisch auf den neuen Tag
+// stellen (nur wenn der Nutzer auf "heute" stand; eine gewählte Vergangenheits-Ansicht bleibt).
+let dashToday = new Date().toISOString().slice(0,10);
+function checkDayRollover(){
+  const nowDay = new Date().toISOString().slice(0,10);
+  if(nowDay === dashToday) return;
+  const rd = document.getElementById('reportDate');
+  if(rd && (!rd.value || rd.value === dashToday)){
+    rd.value = nowDay; dashToday = nowDay;
+    knownIds = new Set(); // neuer Tag -> Bestellungen wieder als "neu" erkennen
+    localStorage.setItem('araratKnownIds','[]');
+    loadOrders();
+  } else { dashToday = nowDay; }
 }
 
 // Check if already logged in
@@ -1555,11 +1573,11 @@ async function eposPrint(order) {
   const div = () => `<text>--------------------------------&#10;</text>`;
 
   let body = '';
-  body += `<text align="center" dh="true" dw="true" em="true">ARARAT GRILL&#10;</text>`;
+  body += `<text align="center" em="true">ARARAT GRILL&#10;</text>`;
   body += `<text align="center">Nordwall 45 - 59269 Beckum&#10;</text>`;
   body += `<text align="center">02521 / 9009414&#10;</text>`;
   body += div();
-  body += `<text align="center" dh="true" dw="true" em="true">#${order.orderNum}&#10;</text>`;
+  body += `<text align="center" em="true">BESTELLUNG #${order.orderNum}&#10;</text>`;
   body += `<text align="center">${xmlEsc(time)}&#10;</text>`;
   body += `<text align="center" em="true">${isD ? '*** LIEFERUNG ***' : '*** ABHOLUNG ***'}&#10;</text>`;
   body += div();
@@ -1573,7 +1591,7 @@ async function eposPrint(order) {
   for (const i of (order.items||[])) {
     const label = `${i.qty}x ${cleanName(i.name)}`.substring(0,24).padEnd(24);
     const price = i.price===0 ? '   GRATIS' : `${(i.price*i.qty).toFixed(2)} EUR`;
-    body += `<text em="true">${xmlEsc(label + price.padStart(9))}&#10;</text>`;
+    body += `<text>${xmlEsc(label + price.padStart(9))}&#10;</text>`;
     const extras = i.extraDetails || [];
     if (extras.length) {
       extras.forEach(e => { if (e.name) body += x(`  ${e.name}`); });
@@ -1888,6 +1906,21 @@ async function printDayReport(){
   try {
     await api('/admin/print-tagesabschluss', 'POST', { dateStr, label });
     showToast('🖨️ Tagesabschluss wird gedruckt…');
+  } catch(e) {
+    showToast('❌ Druckfehler: ' + (e.message || 'Unbekannt'));
+  }
+}
+
+// Monatsabschluss: druckt – wie der Tagesabschluss – über den Server (PrintNode),
+// nur Betriebszahlen (keine Gebühren).
+async function printMonthReport(){
+  const month = new Date().toISOString().slice(0,7); // YYYY-MM
+  const monat = new Date().toLocaleDateString('de-DE',{month:'long',year:'numeric'});
+  if(!confirm('Monatsabschluss für '+monat+' jetzt drucken?')) return;
+  showToast('⏳ Monatsdaten…');
+  try {
+    await api('/admin/print-monatsabschluss', 'POST', { month });
+    showToast('🖨️ Monatsabschluss wird gedruckt…');
   } catch(e) {
     showToast('❌ Druckfehler: ' + (e.message || 'Unbekannt'));
   }

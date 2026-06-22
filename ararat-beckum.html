@@ -2971,9 +2971,20 @@ function openCheckout(){
   document.getElementById('coErrorMsg').classList.remove('show');
   document.getElementById('legalCheckbox').checked=false;
   updateCoSummary();
+  prefillCheckout();
   document.getElementById('coOverlay').classList.add('show');
   document.getElementById('checkoutModal').classList.add('show');
   lockScroll();
+}
+
+// Zuletzt verwendete Kundendaten vorbefüllen (nur leere Felder)
+function prefillCheckout(){
+  let g; try { g = JSON.parse(localStorage.getItem('araratGuestCustomer')||'null'); } catch(e){ return; }
+  if(!g) return;
+  const set=(id,v)=>{ const el=document.getElementById(id); if(el && !el.value && v) el.value=v; };
+  set('coFirst',g.first); set('coLast',g.last); set('coPhone',g.phone); set('coEmail',g.email);
+  set('coStreet',g.street); set('coHouse',g.house);
+  if(g.city){ const c=document.getElementById('coCity'); if(c && !c.value){ c.value=g.city; if(typeof onCityChange==='function') onCityChange(); } }
 }
 function closeCheckout(){
   document.getElementById('coOverlay').classList.remove('show');
@@ -3086,6 +3097,9 @@ async function submitOrder(){
     errEl.textContent='Bitte ausfüllen: '+errs.join(', ');
     errEl.classList.add('show');return;
   }
+
+  // Kundendaten lokal merken → beim nächsten Mal vorausgefüllt (nur im Browser des Kunden)
+  try { localStorage.setItem('araratGuestCustomer', JSON.stringify({ first, last, phone, email, city, street, house })); } catch(e){}
 
   const btn=document.getElementById('coSubmitBtn');
   const txtEl=document.getElementById('coSubmitText');
