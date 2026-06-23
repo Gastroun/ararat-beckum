@@ -695,7 +695,7 @@ app.get('/api/admin/orders', authMiddleware, async (req, res) => {
       const from = new Date(dateParam + 'T00:00:00+02:00');
       const to   = new Date(dateParam + 'T23:59:59+02:00');
       const orders = await Order.find({
-        status:    { $nin: ['pending'] },
+        status:    { $nin: ['pending', 'awaiting_payment'] },
         createdAt: { $gte: from, $lte: to }
       }).sort({ createdAt: -1 });
       return res.json({
@@ -719,7 +719,7 @@ app.get('/api/admin/orders', authMiddleware, async (req, res) => {
       const from = new Date(`${monthParam}-01T00:00:00+02:00`);
       const to   = new Date(`${ny}-${String(nm).padStart(2,'0')}-01T00:00:00+02:00`);
       const orders = await Order.find({
-        status:    { $nin: ['pending'] },
+        status:    { $nin: ['pending', 'awaiting_payment'] },
         createdAt: { $gte: from, $lt: to }
       }).sort({ createdAt: 1 });
       return res.json({ orders });
