@@ -711,6 +711,20 @@ app.get('/api/admin/orders', authMiddleware, async (req, res) => {
       });
     }
 
+    // ── Monatsabruf (für Monatsabschluss-Ansicht im Dashboard) ─────
+    const monthParam = req.query.month; // "YYYY-MM"
+    if (monthParam) {
+      const [y, m] = monthParam.split('-').map(Number);
+      const ny = m === 12 ? y + 1 : y, nm = m === 12 ? 1 : m + 1;
+      const from = new Date(`${monthParam}-01T00:00:00+02:00`);
+      const to   = new Date(`${ny}-${String(nm).padStart(2,'0')}-01T00:00:00+02:00`);
+      const orders = await Order.find({
+        status:    { $nin: ['pending'] },
+        createdAt: { $gte: from, $lt: to }
+      }).sort({ createdAt: 1 });
+      return res.json({ orders });
+    }
+
     // Normalfall: nur heutige Bestellungen (UTC+2)
     const berlinDateStr = new Date(Date.now() + 2*60*60*1000).toISOString().slice(0,10);
     const todayFrom = new Date(berlinDateStr + 'T00:00:00+02:00');

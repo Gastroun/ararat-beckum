@@ -1858,6 +1858,36 @@ document.getElementById('bonModal').addEventListener('click', function(e) {
   if (e.target === this) closeBonModal();
 });
 
+// ─── Tages- & Monatsabschluss: druckbare Ansicht im Browser-Fenster (wie Amoura) ───
+// Öffnet ein lesbares Fenster am Bildschirm mit "🖨️ Drucken"-Knopf (Browser-Druckdialog,
+// funktioniert mit jedem Drucker / als PDF). Daten kommen per GET aus /admin/orders.
+const eur = n => (n||0).toFixed(2).replace('.',',') + ' €';
+
+function abschlussHtml(title, subtitle, bodyHtml){
+  return `<!DOCTYPE html><html lang="de"><head><meta charset="UTF-8"><title>${title} ${subtitle}</title>
+  <style>
+    body{font-family:monospace;font-size:12px;max-width:400px;margin:0 auto;padding:16px;color:#000;}
+    h2{text-align:center;margin-bottom:2px;}
+    h3{text-align:center;margin-top:0;}
+    hr{border:none;border-top:1px dashed #000;margin:8px 0;}
+    table{width:100%;border-collapse:collapse;}
+    td,th{padding:3px 4px;}
+    .sum{font-weight:bold;font-size:13px;}
+    .toolbar{text-align:center;margin-bottom:14px;}
+    .toolbar button{font-family:inherit;font-size:13px;padding:8px 18px;border:none;border-radius:7px;background:#c0281a;color:#fff;cursor:pointer;}
+    @media print{.toolbar{display:none;}}
+  </style></head><body>
+  <div class="toolbar"><button onclick="window.print()">🖨️ Drucken</button></div>
+  <h2>ARARAT GRILL</h2>
+  <h3>${title}</h3>
+  <p style="text-align:center;margin:0 0 6px">${subtitle}</p>
+  <hr>
+  ${bodyHtml}
+  <hr>
+  <p style="text-align:center;font-size:11px;">Gedruckt: ${new Date().toLocaleString('de-DE')}</p>
+  </body></html>`;
+}
+
 async function printDayReport(){
   const dateInput = document.getElementById('reportDate');
   const dateStr = (dateInput && dateInput.value) ? dateInput.value : new Date().toISOString().slice(0,10);
@@ -1868,10 +1898,9 @@ async function printDayReport(){
   let dayOrders = [];
   try {
     const r = await api(`/admin/orders?date=${dateStr}`);
-    const all = r.orders || [];
-    const from = new Date(dateStr + 'T00:00:00');
-    const to   = new Date(dateStr + 'T23:59:59');
-    dayOrders  = all.filter(o => { const t=new Date(o.createdAt); return t>=from && t<=to && o.status!=='cancelled'; });
+    if(!r) return; // 401 → Logout
+    const d = await r.json();
+    dayOrders = (d.orders || []).filter(o => o.status !== 'cancelled');
   } catch(e) {
     const from = new Date(dateStr + 'T00:00:00');
     const to   = new Date(dateStr + 'T23:59:59');
@@ -1884,27 +1913,91 @@ async function printDayReport(){
   const nDel   = dayOrders.filter(o=>o.mode==='lieferung').length;
   const nPick  = dayOrders.filter(o=>o.mode==='abholung').length;
 
-  try {
-    await api('/admin/print-tagesabschluss', 'POST', { dateStr, label });
-    showToast('🖨️ Tagesabschluss wird gedruckt…');
-  } catch(e) {
-    showToast('❌ Druckfehler: ' + (e.message || 'Unbekannt'));
-  }
+  const body = `
+  <table>
+    <tr><td>Bestellungen gesamt</td><td align="right"><b>${dayOrders.length}</b></td></tr>
+    <tr><td>&nbsp;&nbsp;davon Lieferung</td><td align="right">${nDel}</td></tr>
+    <tr><td>&nbsp;&nbsp;davon Abholung</td><td align="right">${nPick}</td></tr>
+    <tr><td>&nbsp;&nbsp;Barzahlung</td><td align="right">${nBar}</td></tr>
+    <tr><td>&nbsp;&nbsp;Karte / Online</td><td align="right">${nCard}</td></tr>
+  </table>
+  <hr>
+  <table>
+    <tr><th align="left">Nr</th><th align="left">Zeit</th><th align="left">Kunde</th><th align="left">Art</th><th align="right">Betrag</th></tr>
+    ${dayOrders.map(o=>`
+    <tr>
+      <td>#${o.orderNum}</td>
+      <td>${new Date(o.createdAt).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})}</td>
+      <td>${o.customer?.first||''} ${o.customer?.last||''}</td>
+      <td>${o.mode==='lieferung'?'Lief.':'Abh.'}</td>
+      <td align="right">${eur(o.total)}</td>
+    </tr>`).join('')}
+  </table>
+  <hr>
+  <table><tr class="sum"><td>GESAMTUMSATZ</td><td align="right">${eur(total)}</td></tr></table>`;
+
+  const w = window.open('','_blank','width=520,height=750');
+  if(!w){ showToast('❌ Pop-up-Blocker aktiv – bitte erlauben'); return; }
+  w.document.write(abschlussHtml('Tagesabschluss', label, body));
+  w.document.close();
+  setTimeout(()=>w.print(), 500);
 }
 
-// Monatsabschluss: druckt – wie der Tagesabschluss – über den Server (PrintNode),
-// nur Betriebszahlen (keine Gebühren).
 async function printMonthReport(){
-  const month = new Date().toISOString().slice(0,7); // YYYY-MM
-  const monat = new Date().toLocaleDateString('de-DE',{month:'long',year:'numeric'});
-  if(!confirm('Monatsabschluss für '+monat+' jetzt drucken?')) return;
-  showToast('⏳ Monatsdaten…');
+  const now = new Date();
+  const ym  = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`; // YYYY-MM
+  const label = now.toLocaleDateString('de-DE',{month:'long',year:'numeric'});
+
+  showToast('⏳ Lade Monatsdaten…');
+
+  let monthOrders = [];
   try {
-    await api('/admin/print-monatsabschluss', 'POST', { month });
-    showToast('🖨️ Monatsabschluss wird gedruckt…');
+    const r = await api(`/admin/orders?month=${ym}`);
+    if(!r) return; // 401 → Logout
+    const d = await r.json();
+    monthOrders = (d.orders || []).filter(o => o.status !== 'cancelled');
   } catch(e) {
-    showToast('❌ Druckfehler: ' + (e.message || 'Unbekannt'));
+    showToast('❌ Fehler beim Laden: ' + (e.message || 'Unbekannt'));
+    return;
   }
+
+  const total  = monthOrders.reduce((s,o)=>s+(o.total||0),0);
+  const nBar   = monthOrders.filter(o=>o.payment==='bar').length;
+  const nCard  = monthOrders.filter(o=>o.payment==='karte'||o.payment==='stripe').length;
+  const nDel   = monthOrders.filter(o=>o.mode==='lieferung').length;
+  const nPick  = monthOrders.filter(o=>o.mode==='abholung').length;
+
+  // Umsatz je Tag aggregieren
+  const byDay = {};
+  monthOrders.forEach(o=>{
+    const key = new Date(o.createdAt).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'});
+    if(!byDay[key]) byDay[key] = { count:0, sum:0 };
+    byDay[key].count++; byDay[key].sum += (o.total||0);
+  });
+  const dayRows = Object.keys(byDay).map(k=>`
+    <tr><td>${k}.</td><td align="right">${byDay[k].count}</td><td align="right">${eur(byDay[k].sum)}</td></tr>`).join('');
+
+  const body = `
+  <table>
+    <tr><td>Bestellungen gesamt</td><td align="right"><b>${monthOrders.length}</b></td></tr>
+    <tr><td>&nbsp;&nbsp;davon Lieferung</td><td align="right">${nDel}</td></tr>
+    <tr><td>&nbsp;&nbsp;davon Abholung</td><td align="right">${nPick}</td></tr>
+    <tr><td>&nbsp;&nbsp;Barzahlung</td><td align="right">${nBar}</td></tr>
+    <tr><td>&nbsp;&nbsp;Karte / Online</td><td align="right">${nCard}</td></tr>
+  </table>
+  <hr>
+  <table>
+    <tr><th align="left">Tag</th><th align="right">Best.</th><th align="right">Umsatz</th></tr>
+    ${dayRows || '<tr><td colspan="3" align="center">Keine Bestellungen</td></tr>'}
+  </table>
+  <hr>
+  <table><tr class="sum"><td>GESAMTUMSATZ</td><td align="right">${eur(total)}</td></tr></table>`;
+
+  const w = window.open('','_blank','width=520,height=820');
+  if(!w){ showToast('❌ Pop-up-Blocker aktiv – bitte erlauben'); return; }
+  w.document.write(abschlussHtml('Monatsabschluss', label, body));
+  w.document.close();
+  setTimeout(()=>w.print(), 500);
 }
 
 // ─── ALERT & SOUND ────────────────────────────────────────────────
