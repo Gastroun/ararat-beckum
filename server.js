@@ -887,61 +887,9 @@ app.post('/api/admin/orders/:id/print', authMiddleware, async (req, res) => {
   }
 });
 
-app.post('/api/admin/print-tagesabschluss', authMiddleware, async (req, res) => {
-  try {
-    const { dateStr, label } = req.body;
-    const from = new Date(dateStr + 'T00:00:00');
-    const to   = new Date(dateStr + 'T23:59:59');
-    const orders = await Order.find({
-      createdAt: { $gte: from, $lte: to },
-      status: { $nin: ['cancelled'] }
-    }).sort({ orderNum: 1 });
-
-    const total  = orders.reduce((s, o) => s + (o.total || 0), 0);
-    const nBar   = orders.filter(o => o.payment === 'bar').length;
-    const nCard  = orders.filter(o => o.payment === 'karte' || o.payment === 'stripe').length;
-    const nDel   = orders.filter(o => o.mode === 'lieferung').length;
-    const nPick  = orders.filter(o => o.mode === 'abholung').length;
-    const printedAt = new Date().toLocaleString('de-DE');
-
-    const printHelper = require('./printnode-helper');
-    await printHelper.printDailyReport({ label, orders, total, nBar, nCard, nDel, nPick, printedAt });
-    res.json({ success: true });
-  } catch (err) {
-    console.error('Tagesabschluss Druckfehler:', err);
-    res.status(500).json({ message: 'Druckfehler' });
-  }
-});
-
-// Monatsabschluss drucken (wie Tagesabschluss, via PrintNode) – nur Betriebszahlen, keine Gebühren
-app.post('/api/admin/print-monatsabschluss', authMiddleware, async (req, res) => {
-  try {
-    const month = req.body.month || new Date(Date.now() + 2*60*60*1000).toISOString().slice(0,7); // YYYY-MM
-    const [y, m] = month.split('-').map(Number);
-    const ny = m === 12 ? y + 1 : y, nm = m === 12 ? 1 : m + 1;
-    const from = new Date(`${month}-01T00:00:00+02:00`);
-    const to   = new Date(`${ny}-${String(nm).padStart(2,'0')}-01T00:00:00+02:00`);
-    const orders = await Order.find({
-      createdAt: { $gte: from, $lt: to },
-      status: { $nin: ['cancelled', 'pending'] }
-    }).sort({ orderNum: 1 });
-
-    const label = new Date(`${month}-01T12:00:00`).toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
-    const total  = orders.reduce((s, o) => s + (o.total || 0), 0);
-    const nBar   = orders.filter(o => o.payment === 'bar').length;
-    const nCard  = orders.filter(o => o.payment === 'karte' || o.payment === 'stripe').length;
-    const nDel   = orders.filter(o => o.mode === 'lieferung').length;
-    const nPick  = orders.filter(o => o.mode === 'abholung').length;
-    const printedAt = new Date().toLocaleString('de-DE');
-
-    const printHelper = require('./printnode-helper');
-    await printHelper.printDailyReport({ title: 'Monatsabschluss', label, orders, total, nBar, nCard, nDel, nPick, printedAt });
-    res.json({ success: true });
-  } catch (err) {
-    console.error('Monatsabschluss Druckfehler:', err);
-    res.status(500).json({ message: 'Druckfehler' });
-  }
-});
+// Hinweis: Tages-/Monatsabschluss werden im Dashboard als druckbares Browser-Fenster
+// erzeugt (printDayReport/printMonthReport via GET /admin/orders?date=|?month=).
+// Es gibt daher keine serverseitigen PrintNode-Abschluss-Endpunkte mehr.
 
 // ═══════════════════════════════════════════════════════════════════
 // E-MAIL FUNKTIONEN (via Resend)
