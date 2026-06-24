@@ -5,7 +5,6 @@ const Stripe = require('stripe');
 const { Resend } = require('resend');
 const cron = require('node-cron');
 const PDFDocument = require('pdfkit');
-const crypto = require('crypto');
 require('dotenv').config();
 
 const app = express();
@@ -285,25 +284,13 @@ function pdfBarRechnung(doc, barOrders, barStats, zeitraum, rgnr) {
 }
 
 // ─── AUTH MIDDLEWARE ──────────────────────────────────────────────
-// Admin-Sitzungen serverseitig (in-memory, ohne Extra-Dependency). Login vergibt einen
-// zufälligen Token mit 12 h Ablauf – kein statischer Token mehr im Client.
-const adminSessions = new Map(); // token -> Ablaufzeitpunkt (ms)
-const SESSION_MS = 12 * 60 * 60 * 1000;
-function createAdminSession() {
-  const t = crypto.randomBytes(32).toString('hex');
-  adminSessions.set(t, Date.now() + SESSION_MS);
-  return t;
-}
+// Admin-Auth über statischen Token aus der ENV (wie Amoura). Überlebt Redeploys und
+// läuft nicht ab → einmal am Kiosk-Tablet einloggen, dann dauerhaft eingeloggt.
 function authMiddleware(req, res, next) {
   const auth = req.headers.authorization;
-  if (!auth || !auth.startsWith('Bearer ')) {
+  if (!auth || !auth.startsWith('Bearer ') ||
+      auth.split(' ')[1] !== process.env.ADMIN_TOKEN_SECRET) {
     return res.status(401).json({ message: 'Nicht autorisiert' });
-  }
-  const token = auth.split(' ')[1];
-  const exp = adminSessions.get(token);
-  if (!exp || exp < Date.now()) {
-    adminSessions.delete(token);
-    return res.status(401).json({ message: 'Sitzung abgelaufen' });
   }
   next();
 }
@@ -642,7 +629,7 @@ app.post('/api/admin/login', loginRateLimit, (req, res) => {
   const { password } = req.body;
   if (password === process.env.ADMIN_PASSWORD) {
     loginAttempts.delete(req._loginIp);
-    res.json({ token: createAdminSession() });
+    res.json({ token: process.env.ADMIN_TOKEN_SECRET });
   } else {
     res.status(401).json({ message: 'Falsches Passwort' });
   }

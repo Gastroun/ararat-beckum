@@ -759,7 +759,9 @@ const API_BASE = 'https://ararat-beckum-nfww.onrender.com/api';
 // Kein Passwort/Token mehr im Client – Login & Token-Vergabe laufen serverseitig.
 
 // ─── STATE ────────────────────────────────────────────────────────
-let token = sessionStorage.getItem('araratAdminToken') || '';
+// Token in localStorage (NICHT sessionStorage): überlebt Tablet-/Kiosk-Neustart →
+// kein tägliches Neu-Anmelden. Server-Token ist statisch (ENV), überlebt auch Redeploys.
+let token = localStorage.getItem('araratAdminToken') || '';
 let orders = [];
 let selectedId = null;
 let currentFilter = 'all';
@@ -807,7 +809,7 @@ async function doLogin(){
     if(res.ok){
       const d = await res.json();
       token = d.token;
-      sessionStorage.setItem('araratAdminToken',token);
+      localStorage.setItem('araratAdminToken',token);
       onSuccess(); startApp();
     } else {
       document.getElementById('loginErr').style.display='block';
@@ -827,7 +829,7 @@ async function doLogin(){
 })();
 
 function doLogout(){
-  sessionStorage.removeItem('araratAdminToken');
+  localStorage.removeItem('araratAdminToken');
   token='';clearInterval(pollingTimer);
   document.getElementById('app').style.display='none';
   document.getElementById('loginScreen').style.display='flex';
