@@ -762,7 +762,8 @@ html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);colo
     </div>
     <div id="abschlussModalContent" style="overflow-y:auto;padding:20px;flex:1;background:#fff;color:#000;"></div>
     <div style="padding:14px 20px;border-top:1px solid #333;display:flex;gap:10px;">
-      <button onclick="printAbschlussArea(abschlussPrintHtml)" style="flex:1;padding:10px;background:#f97316;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">🖨️ Drucken / Als PDF</button>
+      <button onclick="printAbschlussDirect()" style="flex:1;padding:10px;background:#f97316;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">🖨️ Drucken</button>
+      <button onclick="printAbschlussArea(abschlussPrintHtml)" style="flex:1;padding:10px;background:#6366f1;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">📄 Als PDF</button>
       <button onclick="closeAbschlussModal()" style="flex:1;padding:10px;background:#3a3a4a;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">Schließen</button>
     </div>
   </div>
@@ -1904,6 +1905,51 @@ const eur = n => (n||0).toFixed(2).replace('.',',') + ' €';
 
 // Aktuell im Abschluss-Modal angezeigtes/zu druckendes Report-HTML
 let abschlussPrintHtml = '';
+// Fertiger ePOS-Druckinhalt (Bondrucker-Direktdruck) zum aktuellen Abschluss
+let abschlussEposBody = '';
+
+// ── ePOS-Bausteine für den Abschluss (58mm Thermo = 32 Zeichen breit) ──
+const aDiv    = () => `<text>--------------------------------&#10;</text>`;
+const aCenter = (t, em) => `<text align="center"${em?' em="true"':''}>${xmlEsc(t)}&#10;</text>`;
+const aMoney  = v => (v||0).toFixed(2).replace('.',',') + ' EUR';
+function aKV(k, v, em){            // Schlüssel links, Wert rechtsbündig auf 32 Zeichen
+  k = String(k); v = String(v);
+  const sp = Math.max(1, 32 - k.length - v.length);
+  return `<text${em?' em="true"':''}>${xmlEsc(k + ' '.repeat(sp) + v)}&#10;</text>`;
+}
+
+// Schickt einen fertigen ePOS-Body direkt an den Epson-Bondrucker (LAN) – wie die Bons.
+async function sendEposBody(body){
+  const xml = `<?xml version="1.0" encoding="utf-8"?>`
+    + `<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">`
+    + `<s:Body><epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">`
+    + body
+    + `</epos-print></s:Body></s:Envelope>`;
+  try {
+    await fetch(getEposUrl(), {
+      method: 'POST', mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: xml, signal: AbortSignal.timeout(6000)
+    });
+    eposConnected = true; updatePrinterStatus();
+    return true;
+  } catch(e) {
+    eposConnected = false; updatePrinterStatus();
+    return false;
+  }
+}
+
+// Druckt den aktuell angezeigten Abschluss DIREKT am Bondrucker (Epson ePOS/LAN).
+// Fällt bei nicht erreichbarem Drucker auf den Browser-Druck (#printArea) zurück.
+async function printAbschlussDirect(){
+  if (abschlussEposBody) {
+    showToast('🖨️ Drucke am Bondrucker…');
+    const ok = await sendEposBody(abschlussEposBody);
+    if (ok) { showToast('✅ Gedruckt'); closeAbschlussModal(); return; }
+    showToast('⚠️ Drucker nicht erreichbar – Browser-Druck');
+  }
+  printAbschlussArea(abschlussPrintHtml);
+}
 
 function closeAbschlussModal(){
   document.getElementById('abschlussModal').style.display = 'none';
@@ -1990,6 +2036,32 @@ async function printDayReport(){
   <table><tr class="sum"><td>GESAMTUMSATZ</td><td align="right">${eur(total)}</td></tr></table>`;
 
   abschlussPrintHtml = abschlussHtml('Tagesabschluss', label, body);
+
+  // Direktdruck-Inhalt für den Bondrucker (Epson ePOS) zusammenbauen
+  let eb = '';
+  eb += aCenter('ARARAT GRILL', true);
+  eb += aCenter('TAGESABSCHLUSS', true);
+  eb += aCenter(label);
+  eb += aDiv();
+  eb += aKV('Bestellungen', dayOrders.length);
+  eb += aKV('  Lieferung', nDel);
+  eb += aKV('  Abholung', nPick);
+  eb += aKV('  Barzahlung', nBar);
+  eb += aKV('  Karte/Online', nCard);
+  eb += aDiv();
+  dayOrders.forEach(o=>{
+    const t  = new Date(o.createdAt).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+    const nm = `${o.customer?.first||''} ${o.customer?.last||''}`.trim();
+    eb += aKV(`#${o.orderNum} ${t}`, aMoney(o.total));
+    if (nm) eb += `<text>${xmlEsc('  '+nm)}&#10;</text>`;
+  });
+  eb += aDiv();
+  eb += aKV('GESAMTUMSATZ', aMoney(total), true);
+  eb += aDiv();
+  eb += aCenter('Gedruckt: ' + new Date().toLocaleString('de-DE'));
+  eb += `<feed line="3"/><cut type="feed"/>`;
+  abschlussEposBody = eb;
+
   document.getElementById('abschlussModalContent').innerHTML = abschlussPrintHtml;
   document.getElementById('abschlussModal').style.display = 'flex';
 }
@@ -2045,6 +2117,30 @@ async function printMonthReport(){
   <table><tr class="sum"><td>GESAMTUMSATZ</td><td align="right">${eur(total)}</td></tr></table>`;
 
   abschlussPrintHtml = abschlussHtml('Monatsabschluss', label, body);
+
+  // Direktdruck-Inhalt für den Bondrucker (Epson ePOS) zusammenbauen
+  let eb = '';
+  eb += aCenter('ARARAT GRILL', true);
+  eb += aCenter('MONATSABSCHLUSS', true);
+  eb += aCenter(label);
+  eb += aDiv();
+  eb += aKV('Bestellungen', monthOrders.length);
+  eb += aKV('  Lieferung', nDel);
+  eb += aKV('  Abholung', nPick);
+  eb += aKV('  Barzahlung', nBar);
+  eb += aKV('  Karte/Online', nCard);
+  eb += aDiv();
+  Object.keys(byDay).forEach(k=>{
+    eb += aKV(`${k}. (${byDay[k].count})`, aMoney(byDay[k].sum));
+  });
+  if (!Object.keys(byDay).length) eb += aCenter('Keine Bestellungen');
+  eb += aDiv();
+  eb += aKV('GESAMTUMSATZ', aMoney(total), true);
+  eb += aDiv();
+  eb += aCenter('Gedruckt: ' + new Date().toLocaleString('de-DE'));
+  eb += `<feed line="3"/><cut type="feed"/>`;
+  abschlussEposBody = eb;
+
   document.getElementById('abschlussModalContent').innerHTML = abschlussPrintHtml;
   document.getElementById('abschlussModal').style.display = 'flex';
 }
