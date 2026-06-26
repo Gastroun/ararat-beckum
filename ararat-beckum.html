@@ -2930,7 +2930,8 @@ function toggleCart(){
   if(panel.classList.contains('show')) lockScroll(); else unlockScroll();
 }
 // ===== CHECKOUT =====
-const API_BASE = 'https://ararat-beckum-nfww.onrender.com/api';
+// Relativ: spricht immer den Server an, der diese Seite ausliefert (egal welche Domain/Service).
+const API_BASE = '/api';
 // Stripe Publishable Key nicht mehr nötig – Redirect läuft über Backend
 // Backend braucht: STRIPE_SECRET_KEY + STRIPE_WEBHOOK_SECRET in Render
 const SERVICE_FEE = 1.00;
