@@ -419,7 +419,7 @@ html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);colo
         <button class="mode-btn" id="modeGeschlossen" onclick="setMode('geschlossen')">🔴 Zu</button>
         <span class="mode-auto-badge" id="autoModeBadge" onclick="toggleAuto()">🕐 Auto</span>
       </div>
-      <span id="printerStatus" title="Drucker-Status" onclick="testEposDirect()" style="font-size:.75rem;padding:4px 10px;border-radius:20px;background:var(--bg3);border:1px solid var(--border);color:var(--muted);cursor:pointer;white-space:nowrap;">🖨️ Prüfe...</span>
+      <span id="printerStatus" title="Drucker-Status" style="font-size:.75rem;padding:4px 10px;border-radius:20px;background:var(--bg3);border:1px solid var(--border);color:var(--muted);cursor:pointer;white-space:nowrap;">🖨️ Prüfe...</span>
       <button class="logout-btn" id="btnStripePanel" onclick="openStripeModal()" title="Ausstehende Stripe-Zahlungen">💳 Stripe</button>
       <button class="logout-btn" onclick="doLogout()">Abmelden</button>
     </div>
@@ -1500,7 +1500,7 @@ let rawbtConnected  = false;
 let eposConnected   = false;
 
 function getEposUrl() {
-  const ip = localStorage.getItem('epos_ip') || '192.168.2.174';
+  const ip = localStorage.getItem('epos_ip') || '192.168.178.111';
   return `http://${ip}/cgi-bin/epos/service.cgi?devid=local_printer&timeout=10000`;
 }
 
@@ -1601,7 +1601,7 @@ async function eposPrint(order) {
   const pad = v => String(v).padStart(14);
   body += x(`Zwischensumme:  ${pad((order.subtotal||0).toFixed(2)+' EUR')}`);
   if ((order.deliveryFee||0)>0) body += x(`Liefergebuehr:  ${pad(order.deliveryFee.toFixed(2)+' EUR')}`);
-  body += x(`Servicegebuehr: ${pad((order.serviceFee||1.00).toFixed(2)+' EUR')}`);
+  if ((order.serviceFee||0)>0) body += x(`Servicegebuehr: ${pad(order.serviceFee.toFixed(2)+' EUR')}`);
   body += `<text em="true">GESAMT:         ${xmlEsc(pad((order.total||0).toFixed(2)+' EUR'))}&#10;</text>`;
   body += div();
   const zahlung = order.payment==='stripe'?'KREDITKARTE':order.payment==='karte'?'EC-KARTE':'BARZAHLUNG';
@@ -1744,15 +1744,14 @@ async function rawbtPrint(order) {
 }
 
 async function smartPrint(order) {
-  // 1. Fully Kiosk Browser (direkte Methode – wie Amoura)
-  if (window.fully) {
-    fullyPrint(order);
-    return;
-  }
-  // 2. RawBT HTTP API (ESC/POS – korrekte Thermodruck-Qualität)
-  const ok = await rawbtPrint(order);
-  if (ok) return;
-  // 3. Fallback: Browser-Popup
+  // 1. Epson ePOS direkt an Drucker-IP (LAN) – korrektes Thermo-Format, lautlos.
+  //    Setzt voraus, dass Fully Kiosk "Mixed Content" erlaubt (HTTPS-Seite -> http-Drucker).
+  if (await eposPrint(order)) return;
+  // 2. RawBT (vom Inhaber per IP eingerichtet) – echter Text-Bon
+  if (await rawbtPrint(order)) return;
+  // 3. Fully-Kiosk HTML-Druck (Notnagel, nur falls oben nichts ging)
+  if (window.fully) { fullyPrint(order); return; }
+  // 4. Fallback: Browser-Popup
   doBrowserPrint(order);
 }
 
@@ -1878,6 +1877,24 @@ document.getElementById('bonModal').addEventListener('click', function(e) {
 document.getElementById('abschlussModal').addEventListener('click', function(e) {
   if (e.target === this) closeAbschlussModal();
 });
+
+// Drucker-Badge antippen → Drucker-IP (Epson/LAN) ändern. Speichert in localStorage('epos_ip').
+(function(){
+  const badge = document.getElementById('printerStatus');
+  if (!badge) return;
+  badge.style.cursor = 'pointer';
+  badge.title = 'Antippen, um die Drucker-IP zu ändern';
+  badge.addEventListener('click', function(){
+    const aktuell = localStorage.getItem('epos_ip') || '192.168.178.111';
+    const ip = prompt('IP-Adresse des Epson-Bondruckers (wie in RawBT):', aktuell);
+    if (ip === null) { testEposDirect(); return; } // Abbrechen → nur Verbindung testen
+    const clean = ip.trim();
+    if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(clean)) { showToast('❌ Keine gültige IP'); return; }
+    localStorage.setItem('epos_ip', clean);
+    showToast('🖨️ Drucker-IP gespeichert: ' + clean);
+    checkEpos();
+  });
+})();
 
 // ─── Tages- & Monatsabschluss: Vorschau-Modal + Pop-up-freier Druck ───
 // Zeigt den Abschluss im Vorschau-Modal (#abschlussModal). Der Druck läuft über denselben
