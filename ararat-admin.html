@@ -2008,8 +2008,11 @@ async function printDayReport(){
   }
 
   const total  = dayOrders.reduce((s,o)=>s+(o.total||0),0);
+  const isCard = o => o.payment==='karte'||o.payment==='stripe';
   const nBar   = dayOrders.filter(o=>o.payment==='bar').length;
-  const nCard  = dayOrders.filter(o=>o.payment==='karte'||o.payment==='stripe').length;
+  const nCard  = dayOrders.filter(isCard).length;
+  const sumBar = dayOrders.filter(o=>o.payment==='bar').reduce((s,o)=>s+(o.total||0),0);
+  const sumCard= dayOrders.filter(isCard).reduce((s,o)=>s+(o.total||0),0);
   const nDel   = dayOrders.filter(o=>o.mode==='lieferung').length;
   const nPick  = dayOrders.filter(o=>o.mode==='abholung').length;
 
@@ -2018,8 +2021,8 @@ async function printDayReport(){
     <tr><td>Bestellungen gesamt</td><td align="right"><b>${dayOrders.length}</b></td></tr>
     <tr><td>&nbsp;&nbsp;davon Lieferung</td><td align="right">${nDel}</td></tr>
     <tr><td>&nbsp;&nbsp;davon Abholung</td><td align="right">${nPick}</td></tr>
-    <tr><td>&nbsp;&nbsp;Barzahlung</td><td align="right">${nBar}</td></tr>
-    <tr><td>&nbsp;&nbsp;Karte / Online</td><td align="right">${nCard}</td></tr>
+    <tr><td>&nbsp;&nbsp;Barzahlung</td><td align="right">${nBar} · ${eur(sumBar)}</td></tr>
+    <tr><td>&nbsp;&nbsp;Karte / Online</td><td align="right">${nCard} · ${eur(sumCard)}</td></tr>
   </table>
   <hr>
   <table>
@@ -2047,8 +2050,8 @@ async function printDayReport(){
   eb += aKV('Bestellungen', dayOrders.length);
   eb += aKV('  Lieferung', nDel);
   eb += aKV('  Abholung', nPick);
-  eb += aKV('  Barzahlung', nBar);
-  eb += aKV('  Karte/Online', nCard);
+  eb += aKV('  Barzahlung', `${nBar}  ${aMoney(sumBar)}`);
+  eb += aKV('  Karte/Online', `${nCard}  ${aMoney(sumCard)}`);
   eb += aDiv();
   dayOrders.forEach(o=>{
     const t  = new Date(o.createdAt).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
@@ -2086,8 +2089,11 @@ async function printMonthReport(){
   }
 
   const total  = monthOrders.reduce((s,o)=>s+(o.total||0),0);
+  const isCard = o => o.payment==='karte'||o.payment==='stripe';
   const nBar   = monthOrders.filter(o=>o.payment==='bar').length;
-  const nCard  = monthOrders.filter(o=>o.payment==='karte'||o.payment==='stripe').length;
+  const nCard  = monthOrders.filter(isCard).length;
+  const sumBar = monthOrders.filter(o=>o.payment==='bar').reduce((s,o)=>s+(o.total||0),0);
+  const sumCard= monthOrders.filter(isCard).reduce((s,o)=>s+(o.total||0),0);
   const nDel   = monthOrders.filter(o=>o.mode==='lieferung').length;
   const nPick  = monthOrders.filter(o=>o.mode==='abholung').length;
 
@@ -2106,8 +2112,8 @@ async function printMonthReport(){
     <tr><td>Bestellungen gesamt</td><td align="right"><b>${monthOrders.length}</b></td></tr>
     <tr><td>&nbsp;&nbsp;davon Lieferung</td><td align="right">${nDel}</td></tr>
     <tr><td>&nbsp;&nbsp;davon Abholung</td><td align="right">${nPick}</td></tr>
-    <tr><td>&nbsp;&nbsp;Barzahlung</td><td align="right">${nBar}</td></tr>
-    <tr><td>&nbsp;&nbsp;Karte / Online</td><td align="right">${nCard}</td></tr>
+    <tr><td>&nbsp;&nbsp;Barzahlung</td><td align="right">${nBar} · ${eur(sumBar)}</td></tr>
+    <tr><td>&nbsp;&nbsp;Karte / Online</td><td align="right">${nCard} · ${eur(sumCard)}</td></tr>
   </table>
   <hr>
   <table>
@@ -2128,8 +2134,8 @@ async function printMonthReport(){
   eb += aKV('Bestellungen', monthOrders.length);
   eb += aKV('  Lieferung', nDel);
   eb += aKV('  Abholung', nPick);
-  eb += aKV('  Barzahlung', nBar);
-  eb += aKV('  Karte/Online', nCard);
+  eb += aKV('  Barzahlung', `${nBar}  ${aMoney(sumBar)}`);
+  eb += aKV('  Karte/Online', `${nCard}  ${aMoney(sumCard)}`);
   eb += aDiv();
   Object.keys(byDay).forEach(k=>{
     eb += aKV(`${k}. (${byDay[k].count})`, aMoney(byDay[k].sum));
