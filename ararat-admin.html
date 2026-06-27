@@ -1972,7 +1972,7 @@ function printAbschlussArea(innerHtml){
 // Reiner Inhalt (ohne Dokument-Wrapper/Toolbar) – wird sowohl im Vorschau-Modal als auch
 // in #printArea verwendet. Eigene Inline-Styles, damit der Druck auch in #printArea passt.
 function abschlussHtml(title, subtitle, bodyHtml){
-  return `<div class="abschluss-doc" style="font-family:monospace;font-size:12px;max-width:400px;margin:0 auto;color:#000;">
+  return `<div class="abschluss-doc" style="font-family:monospace;font-size:12px;max-width:320px;margin:0 auto;color:#000;">
   <style>
     .abschluss-doc table{width:100%;border-collapse:collapse;}
     .abschluss-doc td,.abschluss-doc th{padding:3px 4px;}
@@ -2603,7 +2603,7 @@ const NO_POPUP_CONFIG = {
 // ── NO_MENU – exakt die Artikel der Website ────────────────────────
 const NO_MENU = [
   {cat:'🥙 Döner', items:[
-    {num:'01', name:'Döner-Tasche',              price:8.0},
+    {num:'01', name:'Döner-Tasche',              price:8.5},
     {num:'02', name:'Pomm-Döner',                price:9.0},
     {num:'03', name:'Döner-Box',                 price:9.0},
     {num:'04', name:'Linsensuppe',               price:7.5},
@@ -2612,12 +2612,12 @@ const NO_MENU = [
     {num:'07', name:'Salat-Tasche',              price:6.5},
     {num:'08', name:'Pommes-Tasche',             price:7.0},
     {num:'09', name:'Dürüm (vegetarisch)',        price:8.5},
-    {num:'10', name:'Dürüm',                     price:10.0},
+    {num:'10', name:'Dürüm',                     price:11.0},
     {num:'11', name:'Dürüm Spezial',             price:11.0},
     {num:'12', name:'Falafel-Tasche',            price:7.5},
     {num:'13', name:'Falafel-Rolle',             price:9.5},
     {num:'14', name:'Falafel-Teller',            price:13.0},
-    {num:'15', name:'Döner Teller',              price:15.0},
+    {num:'15', name:'Döner Teller',              price:16.0},
     {num:'15a',name:'Holländischer Dönerteller', price:17.0},
     {num:'16', name:'Iskender Kebab',            price:17.0},
     {num:'17', name:'Saray Döner',               price:17.0},
@@ -2680,7 +2680,7 @@ const NO_MENU = [
   {cat:'🫔 Lahmacun', items:[
     {num:'57', name:'Lahmacun',                  price:5.0},
     {num:'58', name:'Lahmacun mit Salat',        price:8.5},
-    {num:'59', name:'Lahmacun mit Dönerfleisch', price:10.0},
+    {num:'59', name:'Lahmacun mit Dönerfleisch', price:11.0},
     {num:'60', name:'Lahmacun-Spezial',          price:11.0},
   ]},
   {cat:'🍟 Imbiss', items:[
