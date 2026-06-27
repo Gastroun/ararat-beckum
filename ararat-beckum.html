@@ -169,6 +169,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);}
 .mode-tab{border:2px solid var(--border);border-radius:10px;padding:12px;cursor:pointer;text-align:center;transition:all .15s;background:var(--white);}
 .mode-tab:hover{border-color:var(--red);background:var(--red-light);}
 .mode-tab.active{border-color:var(--red);background:var(--red-light);}
+.mode-tab.disabled{opacity:.45;cursor:not-allowed;pointer-events:none;filter:grayscale(1);}
+.mode-tab.disabled:hover{border-color:var(--border);background:var(--white);}
+.delivery-off-hint{display:none;margin-top:8px;font-size:.82rem;font-weight:600;color:var(--red);background:var(--red-light);border-radius:8px;padding:8px 10px;text-align:center;}
 .mode-tab-icon{font-size:1.5rem;margin-bottom:4px;}
 .mode-tab-label{font-size:.85rem;font-weight:600;color:var(--text);}
 .mode-tab-sub{font-size:.74rem;color:var(--muted);margin-top:2px;}
@@ -2016,6 +2019,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);}
             <div class="mode-tab-sub">Nordwall 45</div>
           </div>
         </div>
+        <div class="delivery-off-hint" id="deliveryOffHint">🏃 Heute nur Abholung möglich – keine Lieferung.</div>
       </div>
 
       <!-- Delivery city -->
@@ -2945,6 +2949,7 @@ const DELIVERY_CITIES = {
 
 let coMode = 'lieferung';
 let coPayment = 'bar';
+let deliveryEnabled = true; // wird von /api/status gesetzt; false = nur Abholung
 
 // ── Stripe: just show info box, no SDK needed ──
 function initStripe(){
@@ -2958,19 +2963,21 @@ function openCheckout(){
   document.getElementById('overlay').classList.remove('show');
   document.getElementById('coForm').style.display='';
   document.getElementById('coConfirm').style.display='none';
-  coMode='lieferung'; coPayment='bar';
-  document.getElementById('tabLieferung').classList.add('active');
-  document.getElementById('tabAbholung').classList.remove('active');
+  coMode = deliveryEnabled ? 'lieferung' : 'abholung'; coPayment='bar';
+  document.getElementById('tabLieferung').classList.toggle('active', coMode==='lieferung');
+  document.getElementById('tabAbholung').classList.toggle('active', coMode==='abholung');
   ['Bar','Stripe'].forEach(x=>{
     const el=document.getElementById('pay'+x);
     if(el) el.classList.remove('active');
   });
   document.getElementById('payBar').classList.add('active');
   document.getElementById('stripeForm').classList.remove('show');
-  document.getElementById('citySection').style.display='';
-  document.getElementById('addressFields').style.display='';
+  const showDelivFields = coMode==='lieferung';
+  document.getElementById('citySection').style.display = showDelivFields ? '' : 'none';
+  document.getElementById('addressFields').style.display = showDelivFields ? '' : 'none';
   document.getElementById('coErrorMsg').classList.remove('show');
   document.getElementById('legalCheckbox').checked=false;
+  applyDeliveryAvailability();
   updateCoSummary();
   prefillCheckout();
   document.getElementById('coOverlay').classList.add('show');
@@ -2995,6 +3002,7 @@ function closeCheckout(){
 function closeCheckoutConfirm(){closeCheckout();cart=[];updateCartUI();}
 
 function setMode(m){
+  if(m==='lieferung' && !deliveryEnabled) return; // Lieferung aktuell deaktiviert
   coMode=m;
   document.getElementById('tabLieferung').classList.toggle('active',m==='lieferung');
   document.getElementById('tabAbholung').classList.toggle('active',m==='abholung');
@@ -3003,6 +3011,19 @@ function setMode(m){
   document.getElementById('coFeeRow').style.display=m==='lieferung'?'':'none';
   updateCoSummary();
   updateCartUI();
+}
+
+// Lieferung-Tab je nach Backend-Status ausgrauen + Hinweis
+function applyDeliveryAvailability(){
+  const tab  = document.getElementById('tabLieferung');
+  const hint = document.getElementById('deliveryOffHint');
+  if(!tab) return;
+  tab.classList.toggle('disabled', !deliveryEnabled);
+  const sub = tab.querySelector('.mode-tab-sub');
+  if(sub) sub.textContent = deliveryEnabled ? 'Nach Hause' : 'Aktuell nicht verfügbar';
+  if(hint) hint.style.display = deliveryEnabled ? 'none' : '';
+  // Falls Lieferung gewählt war, aber jetzt deaktiviert → auf Abholung umstellen
+  if(!deliveryEnabled && coMode==='lieferung') setMode('abholung');
 }
 
 function setPayment(p){
@@ -3628,6 +3649,8 @@ async function syncWithBackend(){
   try{
     const statusRes = await fetch(API_BASE + '/status');
     const statusData = await statusRes.json();
+    deliveryEnabled = statusData.deliveryEnabled !== false;
+    applyDeliveryAvailability();
     const mode = statusData.mode || (statusData.isOpen ? 'online' : 'geschlossen');
     if(mode === 'geschlossen'){
       showClosedBanner('geschlossen');

@@ -299,7 +299,8 @@ function authMiddleware(req, res, next) {
 const statusSchema = new mongoose.Schema({
   _id: { type: String, default: 'main' },
   mode: { type: String, enum: ['online','neutral','geschlossen'], default: 'online' },
-  manualOverride: { type: Boolean, default: false }
+  manualOverride: { type: Boolean, default: false },
+  deliveryEnabled: { type: Boolean, default: true } // false = nur Abholung, keine Lieferung
 });
 const RestaurantStatus = mongoose.model('RestaurantStatus', statusSchema);
 
@@ -359,9 +360,13 @@ app.get('/api/config', (req, res) => {
 app.get('/api/status', async (req, res) => {
   try {
     const s = await RestaurantStatus.findById('main');
-    res.json({ mode: s ? s.mode : 'online', manualOverride: s ? s.manualOverride : false });
+    res.json({
+      mode: s ? s.mode : 'online',
+      manualOverride: s ? s.manualOverride : false,
+      deliveryEnabled: s ? s.deliveryEnabled !== false : true
+    });
   } catch (err) {
-    res.json({ mode: 'online', manualOverride: false });
+    res.json({ mode: 'online', manualOverride: false, deliveryEnabled: true });
   }
 });
 
@@ -588,7 +593,11 @@ app.post('/api/verify-payment', async (req, res) => {
 app.get('/api/admin/status', authMiddleware, async (req, res) => {
   try {
     const s = await RestaurantStatus.findById('main');
-    res.json({ mode: s ? s.mode : 'online', manualOverride: s ? s.manualOverride : false });
+    res.json({
+      mode: s ? s.mode : 'online',
+      manualOverride: s ? s.manualOverride : false,
+      deliveryEnabled: s ? s.deliveryEnabled !== false : true
+    });
   } catch (err) {
     res.status(500).json({ message: 'Fehler' });
   }
@@ -596,14 +605,15 @@ app.get('/api/admin/status', authMiddleware, async (req, res) => {
 
 app.patch('/api/admin/status', authMiddleware, async (req, res) => {
   try {
-    const { mode, manualOverride } = req.body;
+    const { mode, manualOverride, deliveryEnabled } = req.body;
     const update = {};
     if (mode !== undefined) update.mode = mode;
     if (manualOverride !== undefined) update.manualOverride = manualOverride;
+    if (deliveryEnabled !== undefined) update.deliveryEnabled = deliveryEnabled;
     // Auto-Modus: sofort berechnen wenn manualOverride auf false gesetzt wird
     if (manualOverride === false && mode === undefined) update.mode = calcAutoMode();
     const s = await RestaurantStatus.findByIdAndUpdate('main', update, { upsert: true, new: true });
-    res.json({ mode: s.mode, manualOverride: s.manualOverride });
+    res.json({ mode: s.mode, manualOverride: s.manualOverride, deliveryEnabled: s.deliveryEnabled !== false });
   } catch (err) {
     res.status(500).json({ message: 'Fehler' });
   }

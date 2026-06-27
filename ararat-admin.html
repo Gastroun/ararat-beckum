@@ -46,6 +46,8 @@ html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);colo
 .mode-btn.active-geschlossen{background:#8b1d1d;border-color:#8b1d1d;color:#fff;}
 .mode-auto-badge{font-size:.68rem;background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:3px 8px;color:var(--muted);cursor:pointer;white-space:nowrap;}
 .mode-auto-badge.auto-on{background:#1a3a6b;border-color:#2a5aab;color:#7ab3ff;}
+.mode-btn.delivery-on{background:#1a6b2f;border-color:#1a6b2f;color:#fff;}
+.mode-btn.delivery-off{background:var(--bg3);border-color:var(--border);color:var(--muted);text-decoration:line-through;}
 .logout-btn{background:transparent;border:1px solid var(--border);border-radius:7px;padding:6px 12px;color:var(--muted);font-size:.78rem;cursor:pointer;font-family:inherit;transition:all .2s;}
 .logout-btn:hover{border-color:var(--gold);color:var(--text);}
 
@@ -418,6 +420,7 @@ html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);colo
         <button class="mode-btn" id="modeNeutral"     onclick="setMode('neutral')">⚪ Neutral</button>
         <button class="mode-btn" id="modeGeschlossen" onclick="setMode('geschlossen')">🔴 Zu</button>
         <span class="mode-auto-badge" id="autoModeBadge" onclick="toggleAuto()">🕐 Auto</span>
+        <button class="mode-btn" id="modeDelivery" onclick="toggleDelivery()" title="Lieferung für Kunden an/aus">🛵 Lieferung</button>
       </div>
       <span id="printerStatus" title="Drucker-Status" style="font-size:.75rem;padding:4px 10px;border-radius:20px;background:var(--bg3);border:1px solid var(--border);color:var(--muted);cursor:pointer;white-space:nowrap;">🖨️ Prüfe...</span>
       <button class="logout-btn" id="btnStripePanel" onclick="openStripeModal()" title="Ausstehende Stripe-Zahlungen">💳 Stripe</button>
@@ -795,6 +798,7 @@ let knownIds = new Set(JSON.parse(localStorage.getItem('araratKnownIds')||'[]'))
 let isOpen = true;
 let currentMode = 'online';
 let manualOverride = false;
+let deliveryEnabled = true;
 let sidebarTab = 'detail';
 let pollingTimer = null;
 let loadOrdersCtrl  = null;
@@ -1470,6 +1474,27 @@ async function setMode(mode) {
   } catch(e) { showToast('❌ Fehler beim Speichern'); }
 }
 
+function applyDeliveryUI(enabled) {
+  deliveryEnabled = enabled;
+  const btn = document.getElementById('modeDelivery');
+  if (!btn) return;
+  btn.className = 'mode-btn ' + (enabled ? 'delivery-on' : 'delivery-off');
+  btn.textContent = enabled ? '🛵 Lieferung' : '🏃 Nur Abholung';
+  btn.title = enabled ? 'Lieferung aktiv – Kunden können liefern lassen' : 'Lieferung AUS – Kunden können nur abholen';
+}
+
+async function toggleDelivery() {
+  const next = !deliveryEnabled;
+  applyDeliveryUI(next);
+  try {
+    await api('/admin/status', { method: 'PATCH', body: JSON.stringify({ deliveryEnabled: next }) });
+    showToast(next ? '🛵 Lieferung aktiv' : '🏃 Nur Abholung – keine Lieferung');
+  } catch(e) {
+    applyDeliveryUI(!next);
+    showToast('❌ Fehler beim Speichern');
+  }
+}
+
 async function toggleAuto() {
   const newManual = !manualOverride;
   try {
@@ -1486,6 +1511,7 @@ async function loadRestaurantStatus() {
     if(!res) return;
     const d = await res.json();
     applyModeUI(d.manualOverride ? d.mode : (d.autoMode || 'online'), d.manualOverride || false);
+    applyDeliveryUI(d.deliveryEnabled !== false);
   } catch(e) {}
 }
 
