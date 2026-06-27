@@ -1588,7 +1588,8 @@ async function eposPrint(order) {
     body += x(order.customer?.city||'');
   }
   body += div();
-  for (const i of (order.items||[])) {
+  (order.items||[]).forEach((i, idx) => {
+    if (idx > 0) body += `<text>&#10;</text>`; // Leerzeile zwischen den Gerichten
     const label = `${i.qty}x ${cleanName(i.name)}`.substring(0,24).padEnd(24);
     const price = i.price===0 ? '   GRATIS' : `${(i.price*i.qty).toFixed(2)} EUR`;
     body += `<text>${xmlEsc(label + price.padStart(9))}&#10;</text>`;
@@ -1598,7 +1599,7 @@ async function eposPrint(order) {
     } else if (i.note) {
       body += x(`  ${i.note}`);
     }
-  }
+  });
   body += div();
   const pad = v => String(v).padStart(14);
   body += x(`Zwischensumme:  ${pad((order.subtotal||0).toFixed(2)+' EUR')}`);
@@ -1675,14 +1676,15 @@ function buildBonText(order) {
     txt += (order.customer?.city||'') + '\n';
   }
   txt += sep + '\n';
-  for (const i of (order.items||[])) {
+  (order.items||[]).forEach((i, idx) => {
+    if (idx > 0) txt += '\n'; // Leerzeile zwischen den Gerichten
     const name = cleanName(i.name).slice(0,22);
     const price = i.price===0 ? 'GRATIS' : `${(i.price*i.qty).toFixed(2)} EUR`;
     txt += `${i.qty}x ${name.padEnd(22)} ${price}\n`;
     const extras = i.extraDetails||[];
     if (extras.length) extras.forEach(e => { if(e.name) txt += `  ${e.name}\n`; });
     else if (i.note) txt += `  ${i.note}\n`;
-  }
+  });
   txt += sep + '\n';
   txt += `Zwischensumme:     ${(order.subtotal||0).toFixed(2)} EUR\n`;
   if ((order.deliveryFee||0)>0) txt += `Liefergebuehr:     ${order.deliveryFee.toFixed(2)} EUR\n`;
@@ -1774,16 +1776,17 @@ function fullyPrint(order) {
 
 function buildBonHtml(order) {
   const isD = order.mode==='lieferung';
-  const rows = (order.items||[]).map(i => {
+  const rows = (order.items||[]).map((i, idx) => {
     const baseName = cleanName(i.name);
     const priceStr = i.price === 0 ? 'GRATIS' : (i.price * i.qty).toFixed(2).replace('.', ',') + ' €';
     const extras = i.extraDetails || [];
     const legacyNote = !extras.length && i.note ? i.note : '';
     const numStr = i.num ? `<span style="color:#000;">${i.num}</span> ` : '';
+    const gap = idx > 0 ? 'padding-top:7px;' : ''; // Abstand zwischen den Gerichten
     let html = `<tr>
-      <td style="vertical-align:top;padding-right:4px;white-space:nowrap;font-weight:bold;">${i.qty}×</td>
-      <td style="vertical-align:top;font-weight:bold;">${numStr}${baseName}${legacyNote ? ' ('+legacyNote+')' : ''}</td>
-      <td style="text-align:right;vertical-align:top;white-space:nowrap;font-weight:bold;">${priceStr}</td>
+      <td style="${gap}vertical-align:top;padding-right:4px;white-space:nowrap;font-weight:bold;">${i.qty}×</td>
+      <td style="${gap}vertical-align:top;font-weight:bold;">${numStr}${baseName}${legacyNote ? ' ('+legacyNote+')' : ''}</td>
+      <td style="${gap}text-align:right;vertical-align:top;white-space:nowrap;font-weight:bold;">${priceStr}</td>
     </tr>`;
     extras.forEach(e => {
       if (!e.name) return;
