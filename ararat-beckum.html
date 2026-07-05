@@ -325,8 +325,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);}
 </header>
 
 <div id="gratisGetraenkBanner" style="background:linear-gradient(135deg,#8b0000,#b71c1c);color:#fff;text-align:center;padding:13px 20px;font-size:14px;font-weight:bold;line-height:1.7;position:sticky;top:63px;z-index:95;display:none;">
-  🥤 <span style="font-size:16px;">Gratis-Getränk bei jeder Bestellung ab 25 €!</span> 🥤<br>
-  <span style="font-size:12px;opacity:.9;font-weight:normal;">1. Mai – 30. Juni · Cola · Cola Zero · Mezzo Mix · Fanta · Sprite · Uludag · Ayran · Mineralwasser</span>
+  🥤 <span style="font-size:16px;">Gratis Cola bei jeder Bestellung ab 25 €!</span> 🥤<br>
+  <span style="font-size:12px;opacity:.9;font-weight:normal;">Aktion: 5. – 19. Juli 2026</span>
 </div>
 
 <section class="hero">
@@ -2835,8 +2835,11 @@ function addToCartFromPopup(){
 }
 // ── Cola-Dose Automatik ──────────────────────────────────────────
 function isAktionActive(){
-  const d=new Date();
-  return d.getMonth()===4 || d.getMonth()===5; // Mai + Juni (0-basiert: 4=Mai, 5=Juni)
+  // Gratis-Cola-Aktion: 05.07.–19.07.2026 einschließlich (danach automatisch aus)
+  const start = new Date('2026-07-05T00:00:00');
+  const end   = new Date('2026-07-19T23:59:59');
+  const now   = new Date();
+  return now >= start && now <= end;
 }
 function getColaThreshold(){
   const city=(document.getElementById('coCity')?.value||'').trim();
@@ -2854,7 +2857,7 @@ function syncColaDose(){
   const shouldAdd=real.length>0 && realSubtotal>=getColaThreshold();
   const idx=cart.findIndex(i=>i._isCola);
   if(shouldAdd && idx<0){
-    cart.push({_isCola:true,num:'🥤',name:'',price:0,qty:1,note:'gratis',_drinkChosen:false});
+    cart.push({_isCola:true,num:'🥤',name:'Cola (GRATIS)',price:0,qty:1,note:'gratis',_drinkChosen:true});
   } else if(!shouldAdd && idx>=0){
     cart.splice(idx,1);
   }
@@ -2907,12 +2910,10 @@ function updateCartUI(){
   cart.forEach((item,i)=>{
     const div=document.createElement('div');div.className='cart-item';
     if(item._isCola){
-      div.style.cursor='pointer';
-      div.onclick=openDrinkPicker;
-      const nameDisplay=item._drinkChosen?item.name:'👆 Getränk auswählen';
-      const subDisplay=item._drinkChosen?'Gratis ab 25 € – tippen zum Ändern':'Tippe hier, um dein Gratis-Getränk zu wählen';
+      const nameDisplay=item.name;
+      const subDisplay='Gratis ab 25 € Bestellwert';
       div.innerHTML='<div class="cart-item-emoji" style="font-size:.85rem;font-weight:700;color:var(--muted);opacity:.6;width:40px;text-align:center;">🥤</div>'
-        +'<div class="cart-item-info"><div class="cart-item-name" style="'+(item._drinkChosen?'':'color:#b71c1c;font-weight:700;')+'">'+ nameDisplay+'</div>'
+        +'<div class="cart-item-info"><div class="cart-item-name">'+ nameDisplay+'</div>'
         +'<div class="cart-item-price" style="font-size:.75rem;color:var(--muted)">'+subDisplay+'</div></div>'
         +'<div style="margin-left:auto;display:flex;align-items:center;gap:8px;">'
         +'<span style="background:#e8f5e9;color:#2e7d32;font-size:.72rem;font-weight:700;padding:3px 8px;border-radius:12px;">GRATIS</span>'
