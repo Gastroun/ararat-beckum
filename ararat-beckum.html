@@ -3552,6 +3552,8 @@ function showClosedBanner(mode){
   ].join(';');
   b.innerHTML = mode === 'neutral'
     ? '🚧 &nbsp;Wir arbeiten gerade an unserem Online-Bestellsystem – schau bald wieder vorbei!'
+    : mode === 'dbdown'
+    ? '⚠️ &nbsp;Online-Bestellung vorübergehend nicht möglich – wir nehmen deine Bestellung gerne telefonisch entgegen: <a href="tel:025219009414" style="color:#fff;">02521-9009414</a>'
     : '🔴 &nbsp;Das Restaurant ist aktuell <u>geschlossen</u> – Bestellungen sind nicht möglich.';
   document.body.prepend(b);
   document.body.style.paddingTop = '52px';
@@ -3575,6 +3577,8 @@ function blockPopups(mode){
 function showBlockedToast(mode){
   const msg = mode === 'neutral'
     ? '🚧 Online-Bestellung aktuell nicht verfügbar – wir arbeiten daran!'
+    : mode === 'dbdown'
+    ? '⚠️ Online-Bestellung gerade nicht möglich – bitte telefonisch: 02521-9009414'
     : '🔴 Bestellung nicht möglich – Restaurant ist geschlossen.';
   let t = document.getElementById('ararat-closed-toast');
   if(t){ clearTimeout(t._timer); t.remove(); }
@@ -3652,8 +3656,12 @@ async function syncWithBackend(){
     const statusData = await statusRes.json();
     deliveryEnabled = statusData.deliveryEnabled !== false;
     applyDeliveryAvailability();
-    const mode = statusData.mode || (statusData.isOpen ? 'online' : 'geschlossen');
-    if(mode === 'geschlossen'){
+    const mode = statusData.dbDown ? 'dbdown'
+               : (statusData.mode || (statusData.isOpen ? 'online' : 'geschlossen'));
+    if(mode === 'dbdown'){
+      showClosedBanner('dbdown');
+      blockPopups('dbdown');
+    } else if(mode === 'geschlossen'){
       showClosedBanner('geschlossen');
       blockPopups('geschlossen');
     } else if(mode === 'neutral'){
@@ -3663,8 +3671,9 @@ async function syncWithBackend(){
       hideClosedBanner();
     }
   } catch(e){
-    showClosedBanner('geschlossen');
-    blockPopups('geschlossen');
+    // Backend gar nicht erreichbar → wie DB-Ausfall behandeln: Telefonnummer anbieten
+    showClosedBanner('dbdown');
+    blockPopups('dbdown');
     console.warn('[Ararat] Status-Check fehlgeschlagen:', e);
   }
 

@@ -58,9 +58,25 @@ app.use((req, res, next) => {
 });
 
 // ─── MONGODB ─────────────────────────────────────────────────────
-mongoose.connect(process.env.MONGODB_URI)
+if (!process.env.MONGODB_URI) console.error('❌ MONGODB_URI nicht gesetzt – Datenbankfunktionen deaktiviert.');
+// bufferCommands:false → DB-Aufrufe scheitern bei getrennter Verbindung sofort,
+// statt 10–20 s im Puffer zu haengen (sonst wartet der Kunde ewig auf einen Fehler).
+mongoose.connect(process.env.MONGODB_URI, {
+  serverSelectionTimeoutMS: 5000,
+  bufferCommands: false,
+})
   .then(() => console.log('✅ MongoDB verbunden'))
-  .catch(err => console.error('❌ MongoDB Fehler:', err));
+  .catch(err => console.error('❌ MongoDB Erstverbindung fehlgeschlagen:', err.message));
+mongoose.connection.on('disconnected', () => console.error('❌ MongoDB getrennt – Reconnect läuft …'));
+mongoose.connection.on('reconnected',  () => console.log('✅ MongoDB wieder verbunden'));
+mongoose.connection.on('error',        err => console.error('❌ MongoDB Fehler:', err.message));
+
+// Ist die DB gerade benutzbar? (1 = connected)
+const dbReady = () => mongoose.connection.readyState === 1;
+
+// Faellt die DB aus, geht die Bestellung telefonisch trotzdem durch – Nummer mitgeben.
+const ORDERS_UNAVAILABLE_MSG =
+  'Wir können gerade leider keine Online-Bestellungen annehmen. Bitte ruf uns kurz an: 02521-9009414.';
 
 // ─── ORDER SCHEMA ────────────────────────────────────────────────
 const orderSchema = new mongoose.Schema({
@@ -357,7 +373,12 @@ app.get('/api/config', (req, res) => {
 });
 
 // ── Restaurant-Status abrufen (PUBLIC) ───────────────────────────
+// Ohne DB ist keine Bestellung moeglich → ehrlich 'geschlossen' melden statt 'online'
+// vorzutaeuschen, sonst laeuft der Kunde in einen Fehler am Ende des Checkouts.
+const STATUS_DB_DOWN = { mode: 'geschlossen', dbDown: true, manualOverride: false, deliveryEnabled: false };
+
 app.get('/api/status', async (req, res) => {
+  if (!dbReady()) return res.json(STATUS_DB_DOWN);
   try {
     const s = await RestaurantStatus.findById('main');
     res.json({
@@ -366,7 +387,8 @@ app.get('/api/status', async (req, res) => {
       deliveryEnabled: s ? s.deliveryEnabled !== false : true
     });
   } catch (err) {
-    res.json({ mode: 'online', manualOverride: false, deliveryEnabled: true });
+    console.error('❌ /api/status DB-Fehler:', err.message);
+    res.json(STATUS_DB_DOWN);
   }
 });
 
@@ -384,6 +406,7 @@ app.get('/api/availability', async (req, res) => {
 // ── Neue Bestellung → IMMER als pending speichern ─────────────────
 // Keine E-Mail, kein Druck – erst nach Bestätigung durch Admin!
 app.post('/api/orders', async (req, res) => {
+  if (!dbReady()) return res.status(503).json({ message: ORDERS_UNAVAILABLE_MSG });
   try {
     const orderNum = await getNextOrderNum();
     const isPOS = req.body.source === 'pos' || req.body.source === 'admin';
@@ -427,6 +450,7 @@ app.post('/api/orders', async (req, res) => {
 
 // ── Stripe Checkout Session erstellen ─────────────────────────────
 app.post('/api/create-stripe-checkout', async (req, res) => {
+  if (!dbReady()) return res.status(503).json({ message: ORDERS_UNAVAILABLE_MSG });
   try {
     const { items, subtotal, deliveryFee, serviceFee, total, customer, mode, note, promoCode, ...rest } = req.body;
     const orderNum = await getNextOrderNum();
