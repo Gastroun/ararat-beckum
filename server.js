@@ -156,6 +156,12 @@ const PDF_FT = 810;
 const PDF_SV = 1.00;
 const PDF_PR = 0.05;
 const pdfFmt = n => n.toFixed(2).replace('.', ',') + ' €';
+// Testbestellungen aus Berichten ausschließen: Name enthält "test" ODER
+// serviceFee = Schema-Default 0,50 € (echte Web-Bestellungen haben 1,00 €).
+const isTestOrder = o => {
+  const name = `${o.customer?.first || ''} ${o.customer?.last || ''}`;
+  return /\btest\b/i.test(name) || o.serviceFee === 0.5;
+};
 
 function pdfColorBox(doc, title, sub, color = '#1a1a2e', h = 70) {
   doc.rect(0, 0, PDF_PW, h).fill(color);
@@ -1291,10 +1297,10 @@ cron.schedule('0 22 * * 0', async () => {
     const datum  = now.toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit', year:'numeric' });
     const vonBis = `${wStart.toLocaleDateString('de-DE')} – ${datum}`;
 
-    const orders = await Order.find({
+    const orders = (await Order.find({
       status: { $in: ['confirmed','preparing','ready','delivered'] },
       createdAt: { $gte: wStart, $lte: wEnd }
-    });
+    })).filter(o => !isTestOrder(o));
 
     const brutto     = orders.reduce((s,o) => s+(o.total||0), 0);
     const svcFees    = orders.reduce((s,o) => s+(o.serviceFee||PDF_SV), 0);
@@ -1445,10 +1451,10 @@ cron.schedule('0 22 * * *', async () => {
     const vonBis = `${mStart.toLocaleDateString('de-DE')} – ${datum}`;
     const rechnungNr = await getNextRechnungNum();
 
-    const orders = await Order.find({
+    const orders = (await Order.find({
       status: { $in: ['confirmed','preparing','ready','delivered'] },
       createdAt: { $gte: mStart, $lte: mEnd }
-    });
+    })).filter(o => !isTestOrder(o));
 
     const brutto     = orders.reduce((s,o) => s+(o.total||0), 0);
     const svcFees    = orders.reduce((s,o) => s+(o.serviceFee||PDF_SV), 0);

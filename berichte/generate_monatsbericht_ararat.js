@@ -48,6 +48,12 @@ const PDF_FT = 810;
 const PDF_SV = 1.00;
 const PDF_PR = 0.05;
 const pdfFmt = n => n.toFixed(2).replace('.', ',') + ' €';
+// Testbestellungen ausschließen (wie server.js): Name enthält "test" ODER
+// serviceFee = Schema-Default 0,50 € (echte Web-Bestellungen haben 1,00 €).
+const isTestOrder = o => {
+  const name = `${o.customer?.first || ''} ${o.customer?.last || ''}`;
+  return /\btest\b/i.test(name) || o.serviceFee === 0.5;
+};
 
 // ── PDF-Helfer (1:1 aus server.js) ────────────────────────────────
 function generatePdf(buildFn) {
@@ -238,6 +244,7 @@ async function fetchOrdersApi(mStart, mEnd) {
   return raw
     .filter(o => ['confirmed','preparing','ready','delivered'].includes(o.status))
     .filter(o => new Date(o.createdAt) >= mStart && new Date(o.createdAt) <= mEnd)
+    .filter(o => !isTestOrder(o))
     .sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt));
 }
 async function fetchOrdersDb(mStart, mEnd) {
@@ -246,7 +253,7 @@ async function fetchOrdersDb(mStart, mEnd) {
     status:    { $in: ['confirmed','preparing','ready','delivered'] },
     createdAt: { $gte: mStart, $lte: mEnd }
   }).sort({ createdAt: 1 }).lean();
-  return orders;
+  return orders.filter(o => !isTestOrder(o));
 }
 
 // ── Hauptprogramm ─────────────────────────────────────────────────
