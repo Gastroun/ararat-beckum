@@ -195,6 +195,8 @@ function pdfTableRow(doc, cells, shade, bold = false) {
 function pdfKundenliste(doc, orders) {
   function drawGroup(label, color, list) {
     if (!list.length) return;
+    // Seitenumbruch, wenn Gruppenkopf + Spaltenkopf + erste Zeilen nicht mehr passen
+    if (doc.y > PDF_FT - 90) { doc.addPage(); doc.y = PDF_M; }
     const gy = doc.y;
     doc.rect(PDF_M, gy, PDF_W, 22).fill(color);
     doc.font('Helvetica-Bold').fontSize(10).fillColor('#fff').text(label, PDF_M + 8, gy + 6, { width: PDF_W - 16 });
@@ -223,6 +225,7 @@ function pdfKundenliste(doc, orders) {
       doc.y = ry + 18;
       sub += (o.total||0);
     });
+    if (doc.y > PDF_FT - 24) { doc.addPage(); doc.y = PDF_M; }
     const sy = doc.y;
     doc.rect(PDF_M, sy, PDF_W, 20).fill(color + '28');
     doc.font('Helvetica').fontSize(9).fillColor('#333').text(`Summe ${label}:`, PDF_M+8, sy+5);
@@ -1509,8 +1512,11 @@ cron.schedule('0 22 * * *', async () => {
       if (barOrdersM.length > 0) {
         pdfBarRechnung(doc, barOrdersM, { barSvc: barSvcM, barNetto: barNettoM, barProv: barProvM, barBetrag: barBetragM }, vonBis, `${rechnungNr}-BAR`);
       }
+      // Fußzeile am unteren Rand der aktuellen (letzten) Seite – ohne dafür eine neue Seite zu erzeugen
+      const _mb = doc.page.margins.bottom; doc.page.margins.bottom = 0;
       doc.font('Helvetica').fontSize(7).fillColor('#bbb')
-        .text(`FlueVate · Abed Rachman Falah · Zur Goldbrede 30 · 59269 Beckum  ·  Monatsbericht ${monat}`, PDF_M, 820, { width: PDF_W, align: 'center' });
+        .text(`FlueVate · Abed Rachman Falah · Zur Goldbrede 30 · 59269 Beckum  ·  Monatsbericht ${monat}`, PDF_M, doc.page.height - 28, { width: PDF_W, align: 'center', lineBreak: false });
+      doc.page.margins.bottom = _mb;
     });
 
     // ── PDF 2: FlueVate Rechnung (nur für Owner) ──────────────────────────
