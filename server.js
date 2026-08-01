@@ -281,7 +281,7 @@ function pdfBarRechnung(doc, barOrders, barStats, zeitraum, rgnr) {
   doc.moveTo(PDF_M, doc.y).lineTo(PDF_M+PDF_W, doc.y).strokeColor('#333').lineWidth(1).stroke(); doc.y += 4;
   const s1y = doc.y;
   doc.rect(PDF_M, s1y, PDF_W, 18).fill('#f0f4f8');
-  doc.font('Helvetica').fontSize(9).fillColor('#333').text('Servicegebühren', PDF_M+8, s1y+5).text(`${barOrders.length} × ${pdfFmt(PDF_SV)}`, PDF_M+200, s1y+5, { width:140, align:'right' });
+  doc.font('Helvetica').fontSize(9).fillColor('#333').text('Servicegebühren', PDF_M+8, s1y+5).text(`${barOrders.length} Bestellungen`, PDF_M+200, s1y+5, { width:140, align:'right' });
   doc.font('Helvetica-Bold').fontSize(9).fillColor('#222').text(pdfFmt(barStats.barSvc), PDF_M+2, s1y+5, { width:PDF_W-4, align:'right' });
   doc.y = s1y + 18;
   const s2y = doc.y;
@@ -1320,7 +1320,7 @@ cron.schedule('0 22 * * 0', async () => {
       pdfHr(doc);
       doc.font('Helvetica-Bold').fontSize(10).fillColor('#1a1a2e').text('ABRECHNUNG', PDF_M, doc.y);
       doc.y += 14;
-      pdfTableRow(doc, [[`Servicegebühren  (${pdfFmt(PDF_SV)} × ${orders.length})`, PDF_M+8, PDF_W-80, 'left'], [pdfFmt(svcFees),    PDF_M+2, PDF_W-4, 'right']], false);
+      pdfTableRow(doc, [[`Servicegebühren  (${orders.length} Bestellungen)`,          PDF_M+8, PDF_W-80, 'left'], [pdfFmt(svcFees),    PDF_M+2, PDF_W-4, 'right']], false);
       pdfTableRow(doc, [[`Systemprovision  (5 % auf ${pdfFmt(nettoBase)})`,          PDF_M+8, PDF_W-80, 'left'], [pdfFmt(provision),  PDF_M+2, PDF_W-4, 'right']], true);
       pdfTableRow(doc, [['Mein Gesamtbetrag',                                        PDF_M+8, PDF_W-80, 'left'], [pdfFmt(meinBetrag), PDF_M+2, PDF_W-4, 'right']], false, true);
       doc.y += 4;
@@ -1482,7 +1482,7 @@ cron.schedule('0 22 * * *', async () => {
       pdfHr(doc);
       doc.font('Helvetica-Bold').fontSize(10).fillColor('#1a1a2e').text('ABRECHNUNG', PDF_M, doc.y);
       doc.y += 14;
-      pdfTableRow(doc, [[`Servicegebühren  (${pdfFmt(PDF_SV)} × ${orders.length})`, PDF_M+8, PDF_W-80, 'left'], [pdfFmt(svcFees),    PDF_M+2, PDF_W-4, 'right']], false);
+      pdfTableRow(doc, [[`Servicegebühren  (${orders.length} Bestellungen)`,          PDF_M+8, PDF_W-80, 'left'], [pdfFmt(svcFees),    PDF_M+2, PDF_W-4, 'right']], false);
       pdfTableRow(doc, [[`Systemprovision  (5 % auf ${pdfFmt(nettoBase)})`,          PDF_M+8, PDF_W-80, 'left'], [pdfFmt(provision),  PDF_M+2, PDF_W-4, 'right']], true);
       pdfTableRow(doc, [['Mein Gesamtbetrag',                                        PDF_M+8, PDF_W-80, 'left'], [pdfFmt(meinBetrag), PDF_M+2, PDF_W-4, 'right']], false, true);
       doc.y += 4;
@@ -1496,9 +1496,9 @@ cron.schedule('0 22 * * *', async () => {
       doc.y += 14;
       weekRows.forEach(([kw2, d], i) => {
         pdfTableRow(doc, [
-          [`KW ${kw2}`,           PDF_M+8, 70,       'left'],
-          [`${d.n} Bestellungen`, PDF_M+8, PDF_W-80, 'left'],
-          [pdfFmt(d.brutto),      PDF_M+2, PDF_W-4,  'right'],
+          [`KW ${kw2}`,           PDF_M+8,  70,        'left'],
+          [`${d.n} Bestellungen`, PDF_M+90, PDF_W-170, 'left'],
+          [pdfFmt(d.brutto),      PDF_M+2,  PDF_W-4,   'right'],
         ], i % 2 === 1);
       });
       doc.y += 8;
