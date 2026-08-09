@@ -682,27 +682,8 @@ html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);colo
         <div class="incoming-note" id="incomingNote"></div>
       </div>
       <div class="incoming-section" style="margin-top:20px;">
-        <div class="incoming-time-title">⏱️ Voraussichtliche Zeit bis zur Lieferung / Abholung:</div>
-        <div class="incoming-time-btns">
-          <div class="time-btn" onclick="selectTime(10,this)">
-            <div class="tb-min">10</div><div class="tb-label">Minuten</div>
-          </div>
-          <div class="time-btn" onclick="selectTime(15,this)">
-            <div class="tb-min">15</div><div class="tb-label">Minuten</div>
-          </div>
-          <div class="time-btn" onclick="selectTime(30,this)">
-            <div class="tb-min">30</div><div class="tb-label">Minuten</div>
-          </div>
-          <div class="time-btn" onclick="selectTime(45,this)">
-            <div class="tb-min">45</div><div class="tb-label">Minuten</div>
-          </div>
-          <div class="time-btn selected" onclick="selectTime(60,this)">
-            <div class="tb-min">60</div><div class="tb-label">Minuten</div>
-          </div>
-          <div class="time-btn" onclick="selectTime(90,this)">
-            <div class="tb-min">90</div><div class="tb-label">Minuten</div>
-          </div>
-        </div>
+        <div class="incoming-time-title" id="incomingTimeTitle"></div>
+        <div class="incoming-time-btns" id="incomingTimeBtns"></div>
       </div>
       <div class="incoming-actions">
         <button class="incoming-accept" id="incomingAcceptBtn" onclick="acceptIncoming()">
@@ -2263,17 +2244,27 @@ let incomingActive = false;
 let incomingCurrentOrder = null;
 let selectedMinutes = 60;
 
+// Auswählbare Wartezeiten je Bestellart – Abholer sind deutlich schneller da
+const TIME_PRESETS = {
+  lieferung: { opts:[10,15,30,45,60,90], def:60, label:'Lieferung' },
+  abholung:  { opts:[5,10,15],           def:15, label:'Abholung'  }
+};
+
 function showNextIncoming(){
   if(incomingQueue.length === 0){ incomingActive = false; stopAlarm(); return; }
   incomingActive = true;
   const o = incomingQueue.shift();
   incomingCurrentOrder = o;
-  selectedMinutes = 60;
 
-  // Reset time button selection
-  document.querySelectorAll('.time-btn').forEach(b=>{
-    b.classList.toggle('selected', b.querySelector('.tb-min').textContent === '60');
-  });
+  // Zeit-Buttons passend zur Bestellart aufbauen
+  const preset = TIME_PRESETS[o.mode==='lieferung'?'lieferung':'abholung'];
+  selectedMinutes = preset.def;
+  document.getElementById('incomingTimeTitle').textContent =
+    '⏱️ Voraussichtliche Zeit bis zur ' + preset.label + ':';
+  document.getElementById('incomingTimeBtns').innerHTML = preset.opts.map(m=>`
+    <div class="time-btn${m===preset.def?' selected':''}" onclick="selectTime(${m},this)">
+      <div class="tb-min">${m}</div><div class="tb-label">Minuten</div>
+    </div>`).join('');
 
   // Fill order num
   document.getElementById('incomingOrderNum').textContent = '#' + (o.orderNum||'–');
@@ -2324,7 +2315,7 @@ function showNextIncoming(){
 
 function selectTime(mins, el){
   selectedMinutes = mins;
-  document.querySelectorAll('.time-btn').forEach(b=>b.classList.remove('selected'));
+  document.querySelectorAll('#incomingTimeBtns .time-btn').forEach(b=>b.classList.remove('selected'));
   el.classList.add('selected');
 }
 
